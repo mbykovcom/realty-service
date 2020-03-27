@@ -1,102 +1,35 @@
-import smtplib
-from datetime import timedelta
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from datetime import datetime
 
 from fastapi import HTTPException
+from pydantic import BaseModel, Field
 from starlette import status
 
-from app.model.models import UserIn, UserOut, UserInDB, RequestIn, RequestOut
-from app import user_collection, request_collection, celery
-from Config import Config
 from bson.objectid import ObjectId
-from app.model.oauth2_jwt import get_password_hash, verify_password, create_access_token
+
+from utils.db import user_collection, request_collection
+
+class RequestIn(BaseModel):
+    title: str = Field(..., description='The title of a request', min_length=2)
+    description: str = Field(..., description='The description of a request', min_length=5)
+    date_receipt: datetime = Field(..., description='Date and time the request was created')
 
 
-def get_user(email: str) -> UserInDB:
-    """ Get a user by email
-
-    :param email: email user as name@email.com
-    :return: data the user or nothing if the user doesn`t exists
-    """
-    user_data = user_collection.find_one({'email': email})
-    if user_data:
-        return UserInDB(**user_data)
+class RequestOut(BaseModel):
+    request_id: str
+    title: str = Field(..., description='The title of a request', min_length=2)
+    description: str = Field(..., description='The description of a request', min_length=10)
+    status: str = Field('draft', description='The status of a request', min_length=4)
+    date_receipt: datetime = Field(..., description='Date and time the request was created')
 
 
-def registration(user_: UserIn, role: str = 'user') -> UserOut:
-    """Registration new a user
-
-    :param user_: object UserIn with data a user for registration
-    :param role: role the user in the app
-    :return: data the user
-    """
-    if get_user(user_.email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='A user with this email already exists')
-    user_db = {}
-    user_id = None
-    try:
-        user_db = {'email': user_.email, 'hash_password': get_password_hash(user_.password), 'role': role}
-        user_id = str(user_collection.insert_one(user_db).inserted_id)
-    except BaseException as e:      # If an exception is raised when adding to the database
-        print(f'Error: {e}')
-        if user_collection:
-            user_collection.remove({'_id': user_id})
-    if user_id:
-        return UserOut(user_id=user_id, email=user_db['email'], role=role)
-    else:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to add a user')
-
-
-@celery.task
-def send_email(email, title, description) -> bool:
-    """Send an email
-
-    :param email: recipient's email address as name@email.com
-    :param title: message subject
-    :param description: the text of the letter
-    :return: True if the email is sent, otherwise False
-    """
-    try:
-        smtpObj = smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT)
-        smtpObj.starttls()
-        smtpObj.login(Config.EMAIL, Config.EMAIL_PASSWORD)
-        message = MIMEMultipart("alternative")
-        message["Subject"] = title
-        message["From"] = Config.EMAIL
-        message["To"] = email
-        msg = f"""\
-                {description}"""
-        message.attach(MIMEText(msg, 'plain'))
-        smtpObj.sendmail(Config.EMAIL, email, message.as_string())
-    except Exception as error:      # If an exception is raised when send email
-        print(error)
-        return False
-    return True
-
-
-def login(user_: UserIn) -> dict:
-    """User authorization
-
-    :param user_: object UserIn with data a user for registration
-    :return: Dictionary with access token and token type
-    """
-    user_data = user_collection.find_one({'email': user_.email})
-    if user_data:
-        if verify_password(user_.password, user_data['hash_password']):
-            access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
-            access_token = create_access_token(
-                data={"sub": user_.email}, expires_delta=access_token_expires
-            )
-            return {"access_token": access_token, "token_type": "bearer"}
-        else:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Wrong password',
-                                headers={"WWW-Authenticate": "Bearer"}, )
-    else:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='The user with this email address does not exist',
-                            headers={"WWW-Authenticate": "Bearer"}, )
-
+class RequestInDB:
+    def __init__(self, **kwargs):
+        self._id: ObjectId = kwargs['_id']
+        self.user_id: str = kwargs['user_id']
+        self.title: str = kwargs['title']
+        self.description: str = kwargs['description']
+        self.status: str = kwargs['status']
+        self.date_receipt: datetime = kwargs['date_receipt']
 
 def create_request(request: RequestIn, user_id: ObjectId) -> RequestOut:
     """Create a request
@@ -111,7 +44,7 @@ def create_request(request: RequestIn, user_id: ObjectId) -> RequestOut:
         request_db = {'user_id': user_id, 'title': request.title, 'description': request.description,
                       'date_receipt': request.date_receipt, 'status': 'draft'}
         request_id = str(request_collection.insert_one(request_db).inserted_id)
-    except BaseException as e:      # If an exception is raised when adding to the database
+    except BaseException as e:  # If an exception is raised when adding to the database
         print(f'Error: {e}')
         if request_collection:
             request_collection.remove({'_id': user_id})
@@ -169,7 +102,8 @@ def get_request(request_id: str, role: str = 'user') -> RequestOut:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='This user does not have request with id='
                                                                             f'{request_id}')
     elif role == 'admin':
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'This request ({request_id}) does not exist')
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f'This request ({request_id}) does not exist')
 
 
 def edit_request(request_id: str, title: str = None, description: str = None) -> RequestOut:
@@ -188,7 +122,7 @@ def edit_request(request_id: str, title: str = None, description: str = None) ->
     title_ = request['title']
     description_ = request['description']
     if status_ == 'draft':
-        result = 0      # The modified flag
+        result = 0  # The modified flag
         if title is not None and title != title_:
             result = request_collection.update_one({'_id': ObjectId(request_id)},
                                                    {'$set': {"title": title}}).modified_count
@@ -219,7 +153,7 @@ def edit_status_request(request_id: str, role: str) -> RequestOut:
     if not request:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='This user does not have request with id='
                                                                             f'{request_id}')
-    result = 0      # The modified flag
+    result = 0  # The modified flag
     if role == 'user':
         if request['status'] == 'draft':
             result = request_collection.update_one({'_id': ObjectId(request_id)},

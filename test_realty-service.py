@@ -6,12 +6,17 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pytest import raises
 
-from Config import Config
-from app import app, client_mongo, request_collection, user_collection
-from app.model import services, oauth2_jwt
-from app.model.models import UserInDB, UserIn, UserOut, RequestIn, RequestOut
+import celery_app
+from app import app
+from config import Config
 
 # db_test = client_mongo['test-realty-service']
+from models import requests
+from models.requests import RequestIn, RequestOut
+from models.user import get_user, UserIn, registration, UserOut, UserInDB, login
+from utils.auth import create_access_token, get_current_user
+from utils.db import user_collection, request_collection
+
 client = TestClient(app)
 
 
@@ -32,7 +37,7 @@ class TestRoutes:
 
     def test_registration(self):
         response = client.post('/registration', json=self.user)
-        TestRoutes.user_id = services.get_user(self.user['email'])._id
+        TestRoutes.user_id = get_user(self.user['email'])._id
         assert response.status_code == 201
         assert response.json() == {"user_id": str(self.user_id),
                                    "email": self.user['email'],
@@ -150,7 +155,7 @@ class TestRoutes:
         }
 
     def test_create_request(self):
-        response = client.post('/create_request', json={'request': self.request, 'jwt': self.jwt['user']})
+        response = client.post('/requests', json={'request': self.request, 'jwt': self.jwt['user']})
         assert response.status_code == 201
         response = response.json()
         response['date_receipt'] = str(datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
@@ -161,7 +166,7 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_create_request_no_body(self):
-        response = client.post('/create_request')
+        response = client.post('/requests')
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
@@ -184,7 +189,7 @@ class TestRoutes:
             ]}
 
     def test_create_request_without_jwt(self):
-        response = client.post('/create_request', json={'request': self.request})
+        response = client.post('/requests', json={'request': self.request})
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
@@ -199,7 +204,7 @@ class TestRoutes:
             ]}
 
     def test_create_request_without_request(self):
-        response = client.post('/create_request', json={'jwt': self.jwt['user']})
+        response = client.post('/requests', json={'jwt': self.jwt['user']})
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
@@ -215,7 +220,7 @@ class TestRoutes:
         }
 
     def test_create_request_without_title(self):
-        response = client.post('/create_request', json={'request': {'description': self.request['description'],
+        response = client.post('/requests', json={'request': {'description': self.request['description'],
                                                                     'date_receipt': self.request['date_receipt']},
                                                         'jwt': self.jwt['user']})
         assert response.status_code == 422
@@ -234,7 +239,7 @@ class TestRoutes:
         }
 
     def test_create_request_without_description(self):
-        response = client.post('/create_request', json={'request': {'title': self.request['title'],
+        response = client.post('/requests', json={'request': {'title': self.request['title'],
                                                                     'date_receipt': self.request['date_receipt']},
                                                         'jwt': self.jwt['user']})
         assert response.status_code == 422
@@ -253,7 +258,7 @@ class TestRoutes:
         }
 
     def test_create_request_without_date_receipt(self):
-        response = client.post('/create_request', json={'request': {'title': self.request['title'],
+        response = client.post('/requests', json={'request': {'title': self.request['title'],
                                                                     'description': self.request['description']},
                                                         'jwt': self.jwt['user']})
         assert response.status_code == 422
@@ -305,9 +310,9 @@ class TestRoutes:
     def test_get_requests_admin(self):
         print(self.jwt['user'])
         print(self.jwt['admin'])
-        response = client.post('/create_request', json={'request': self.request, 'jwt': self.jwt['user']})
+        response = client.post('/requests', json={'request': self.request, 'jwt': self.jwt['user']})
         TestRoutes.request_id = response.json()['request_id']
-        client.put(f"/edit_status_request/{self.request_id}?jwt={self.jwt['user']}")
+        client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['user']}")
         response = client.get(f"/requests?jwt={self.jwt['admin']}")
         response = response.json()
         print(response)
@@ -361,22 +366,22 @@ class TestRoutes:
         assert response.json() == {"detail": f"This request ({request_id}) does not exist"}
 
     def test_edit_request_nothing(self):
-        response = client.put(f"/edit_request/{self.request_id}?jwt={self.jwt['user']}")
+        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}")
         assert response.status_code == 400
         assert response.json() == {"detail": "The Title and Description fields are empty"}
 
     def test_edit_request_active(self):
         self.request['title'] = 'New Title'
-        response = client.put(f"/edit_request/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}")
+        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}")
         assert response.status_code == 400
         assert response.json() == {"detail": "The status of the request active"}
 
     def test_edit_request_title(self):
-        response = client.post('/create_request', json={'request': self.request, 'jwt': self.jwt['user']})
+        response = client.post('/requests', json={'request': self.request, 'jwt': self.jwt['user']})
         TestRoutes.request_id = response.json()['request_id']
 
         self.request['title'] = 'New Title'
-        response = client.put(f"/edit_request/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}")
+        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}")
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
@@ -388,7 +393,7 @@ class TestRoutes:
 
     def test_edit_request_decription(self):
         self.request['description'] = 'New Description'
-        response = client.put(f"/edit_request/{self.request_id}?jwt={self.jwt['user']}&"
+        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&"
                               f"description={self.request['description']}")
         assert response.status_code == 200
         response = response.json()
@@ -402,7 +407,7 @@ class TestRoutes:
     def test_edit_request_full(self):
         self.request['title'] = 'New Title 2'
         self.request['description'] = 'New Description 2'
-        response = client.put(f"/edit_request/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}&"
+        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}&"
                               f"description={self.request['description']}")
         assert response.status_code == 200
         response = response.json()
@@ -414,7 +419,7 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_active(self):
-        response = client.put(f"/edit_status_request/{self.request_id}?jwt={self.jwt['user']}")
+        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['user']}")
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -426,12 +431,12 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_active_again(self):
-        response = client.put(f"/edit_status_request/{self.request_id}?jwt={self.jwt['user']}")
+        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['user']}")
         assert response.status_code == 400
         assert response.json() == {"detail": f'This request ({self.request_id}) has the active status'}
 
     def test_edit_status_request_in_progress(self):
-        response = client.put(f"/edit_status_request/{self.request_id}?jwt={self.jwt['admin']}")
+        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['admin']}")
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -443,7 +448,7 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_finished(self):
-        response = client.put(f"/edit_status_request/{self.request_id}?jwt={self.jwt['admin']}")
+        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['admin']}")
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -455,7 +460,7 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_finished_again(self):
-        response = client.put(f"/edit_status_request/{self.request_id}?jwt={self.jwt['admin']}")
+        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['admin']}")
         assert response.status_code == 400
         assert response.json() == {"detail": f'This request ({self.request_id}) has the finished status'}
 
@@ -490,103 +495,103 @@ class TestService:
 
     def test_registration_user(self):
         role = 'user'
-        result = services.registration(self.new_user)
+        result = registration(self.new_user)
         TestService.user['_id'] = result.user_id
         assert type(result) is UserOut
         assert result.role == role
 
     def test_registration_user_exists(self):
         with raises(HTTPException):
-            assert services.registration(self.new_user)
+            assert registration(self.new_user)
 
     def test_registration_admin(self):
         role = 'admin'
-        result = services.registration(self.new_admin, role='admin')
+        result = registration(self.new_admin, role='admin')
         TestService.admin['_id'] = result.user_id
         assert type(result) is UserOut
         assert result.role == role
 
     def test_get_user(self):
-        result = services.get_user(self.user['email'])
+        result = get_user(self.user['email'])
         assert type(result) is UserInDB
 
     def test_get_user_not_exist(self):
         email = 'not_exit@gmail.com'
-        result = services.get_user(email)
+        result = get_user(email)
         assert result is None
 
     def test_send_email(self):
-        result = services.send_email('bykov@appvelox.ru', 'Test', 'Test')
+        result = celery_app.send_email('bykov@appvelox.ru', 'Test', 'Test')
         assert result is True
 
     def test_login(self):
-        result = services.login(self.user_in)
+        result = login(self.user_in)
         assert result['access_token'] is not None
 
     def test_login_user_doesnt_exists(self):
         with raises(HTTPException):
             user = UserIn(email='not_exists@gmail.com', password='password')
-            assert services.login(user)
+            assert login(user)
 
     def test_login_user_incorrect_data(self):
         with raises(HTTPException):
             user = self.user_in
             user.email = 'not_exit@gmail.com'
-            assert services.login(user)
+            assert login(user)
 
     def test_create_request(self):
-        result = services.create_request(self.request_in, ObjectId(self.user['_id']))
+        result = requests.create_request(self.request_in, ObjectId(self.user['_id']))
         TestService.request['_id'] = result.request_id
         TestService.request['status'] = result.status
         assert type(result) is RequestOut
 
     def test_get_requests(self):
-        result = services.get_requests(ObjectId(self.user['_id']))
+        result = requests.get_requests(ObjectId(self.user['_id']))
         assert type(result) is list
 
     def test_get_requests_incorrect_user_id(self):
         with raises(HTTPException):
-            assert services.get_requests(ObjectId(self.incorrect_user_id))
+            assert requests.get_requests(ObjectId(self.incorrect_user_id))
 
     def test_get_request(self):
-        result = services.get_request(self.request['_id'])
+        result = requests.get_request(self.request['_id'])
         assert type(result) is RequestOut
 
     def test_get_request_doesnt_exists(self):
         with raises(HTTPException):
-            assert services.get_request(self.incorrect_request_id)
+            assert requests.get_request(self.incorrect_request_id)
 
     def test_edit_request(self):
-        result = services.edit_request(self.request['_id'])
+        result = requests.edit_request(self.request['_id'])
         assert type(result) is RequestOut
-        result = services.edit_request(self.request['_id'], title='Title')
+        result = requests.edit_request(self.request['_id'], title='Title')
         assert result.title == 'Title'
-        result = services.edit_request(self.request['_id'], description='Description')
+        result = requests.edit_request(self.request['_id'], description='Description')
         assert result.description == 'Description'
 
     def test_edit_status_request_user(self):
-        result = services.edit_status_request(self.request['_id'], 'user')
+        result = requests.edit_status_request(self.request['_id'], 'user')
         assert result.status == 'active'
 
     def test_edit_status_request_user_status_active(self):
         with raises(HTTPException):
-            assert services.edit_status_request(self.request['_id'], 'user')
+            assert requests.edit_status_request(self.request['_id'], 'user')
 
     def test_edit_request_status_not_draft(self):
         with raises(HTTPException):
-            assert services.edit_request(self.request['_id'], title='Title', description='Description')
+            assert requests.edit_request(self.request['_id'], title='Title', description='Description')
 
     def test_edit_status_request_admin(self):
-        result = services.edit_status_request(self.request['_id'], 'admin')
+        result = requests.edit_status_request(self.request['_id'], 'admin')
         assert result.status == 'in_progress'
 
     def test_edit_status_request_admin_status_in_progress(self):
-        result = services.edit_status_request(self.request['_id'], 'admin')
+        result = requests.edit_status_request(self.request['_id'], 'admin')
         assert result.status == 'finished'
 
     def test_edit_status_request_admin_status_finished(self):
         with raises(HTTPException):
-            assert services.edit_status_request(self.request['_id'], 'admin')
+            assert requests.edit_status_request(self.request['_id'], 'admin')
 
 
 class TestOAuth:
@@ -597,25 +602,25 @@ class TestOAuth:
         cls.access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     def test_create_access_token(self):
-        access_token = oauth2_jwt.create_access_token(data={"sub": self.email},
-                                                      expires_delta=self.access_token_expires)
+        access_token = create_access_token(data={"sub": self.email},
+                                                 expires_delta=self.access_token_expires)
         assert access_token.decode() is not None
         TestOAuth.jwt = access_token.decode()
 
     def test_get_current_user(self):
-        result = oauth2_jwt.get_current_user(self.jwt)
+        result = get_current_user(self.jwt)
         assert type(result) is UserInDB
 
     def test_get_current_user_no_email(self):
-        access_token = oauth2_jwt.create_access_token(data={}, expires_delta=self.access_token_expires)
+        access_token = create_access_token(data={}, expires_delta=self.access_token_expires)
         with raises(HTTPException):
-            assert oauth2_jwt.get_current_user(access_token.decode())
+            assert get_current_user(access_token.decode())
 
     def test_get_current_user_doesnt_exists(self):
-        access_token = oauth2_jwt.create_access_token(data={'sub': 'not_exists@email.ru'},
-                                                      expires_delta=self.access_token_expires)
+        access_token = create_access_token(data={'sub': 'not_exists@email.ru'},
+                                                 expires_delta=self.access_token_expires)
         with raises(HTTPException):
-            assert oauth2_jwt.get_current_user(access_token.decode())
+            assert get_current_user(access_token.decode())
 
 
 if __name__ == '__main__':

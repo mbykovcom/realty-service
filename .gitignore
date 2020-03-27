@@ -1,0 +1,7 @@
+.idea/
+/__pycache__/
+/dump.rdb
+/venv/
+/models/__pycache__/
+/routers/__pycache__/
+/utils/__pycache__/
