@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 
 from utils.db import user_collection, request_collection
 
+
 class RequestIn(BaseModel):
     title: str = Field(..., description='The title of a request', min_length=2)
     description: str = Field(..., description='The description of a request', min_length=5)
@@ -30,6 +31,7 @@ class RequestInDB:
         self.description: str = kwargs['description']
         self.status: str = kwargs['status']
         self.date_receipt: datetime = kwargs['date_receipt']
+
 
 def create_request(request: RequestIn, user_id: ObjectId) -> RequestOut:
     """Create a request

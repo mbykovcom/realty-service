@@ -155,7 +155,8 @@ class TestRoutes:
         }
 
     def test_create_request(self):
-        response = client.post('/requests', json={'request': self.request, 'jwt': self.jwt['user']})
+        headers = {'jwt': self.jwt['user']}
+        response = client.post('/requests', json=self.request, headers=headers)
         assert response.status_code == 201
         response = response.json()
         response['date_receipt'] = str(datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
@@ -172,8 +173,8 @@ class TestRoutes:
             "detail": [
                 {
                     "loc": [
-                        "body",
-                        "request"
+                        "header",
+                        "jwt"
                     ],
                     "msg": "field required",
                     "type": "value_error.missing"
@@ -181,7 +182,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "jwt"
+                        "request"
                     ],
                     "msg": "field required",
                     "type": "value_error.missing"
@@ -189,13 +190,13 @@ class TestRoutes:
             ]}
 
     def test_create_request_without_jwt(self):
-        response = client.post('/requests', json={'request': self.request})
+        response = client.post('/requests', json=self.request)
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
                 {
                     "loc": [
-                        "body",
+                        "header",
                         "jwt"
                     ],
                     "msg": "field required",
@@ -204,25 +205,21 @@ class TestRoutes:
             ]}
 
     def test_create_request_without_request(self):
-        response = client.post('/requests', json={'jwt': self.jwt['user']})
+        headers = {'jwt': self.jwt['user']}
+        response = client.post('/requests', headers=headers)
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
-                {
-                    "loc": [
-                        "body",
-                        "request"
-                    ],
-                    "msg": "field required",
-                    "type": "value_error.missing"
-                }
+                {'loc': ['body', 'request'],
+                 'msg': 'field required',
+                 'type': 'value_error.missing'}
             ]
         }
 
     def test_create_request_without_title(self):
-        response = client.post('/requests', json={'request': {'description': self.request['description'],
-                                                                    'date_receipt': self.request['date_receipt']},
-                                                        'jwt': self.jwt['user']})
+        headers = {'jwt': self.jwt['user']}
+        response = client.post('/requests', json={'description': self.request['description'],
+                                                  'date_receipt': self.request['date_receipt']}, headers=headers)
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
@@ -239,9 +236,9 @@ class TestRoutes:
         }
 
     def test_create_request_without_description(self):
-        response = client.post('/requests', json={'request': {'title': self.request['title'],
-                                                                    'date_receipt': self.request['date_receipt']},
-                                                        'jwt': self.jwt['user']})
+        headers = {'jwt': self.jwt['user']}
+        response = client.post('/requests', json={'title': self.request['title'],
+                                                  'date_receipt': self.request['date_receipt']}, headers=headers)
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
@@ -258,9 +255,9 @@ class TestRoutes:
         }
 
     def test_create_request_without_date_receipt(self):
-        response = client.post('/requests', json={'request': {'title': self.request['title'],
-                                                                    'description': self.request['description']},
-                                                        'jwt': self.jwt['user']})
+        headers = {'jwt': self.jwt['user']}
+        response = client.post('/requests', json={'title': self.request['title'],
+                                                  'description': self.request['description']}, headers=headers)
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
@@ -277,7 +274,8 @@ class TestRoutes:
         }
 
     def test_get_requests_user(self):
-        response = client.get(f"/requests?jwt={self.jwt['user']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.get(f"/requests", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['requests'][0]['date_receipt'] = str(
@@ -294,8 +292,9 @@ class TestRoutes:
         }
 
     def test_get_requests_user_empty(self):
+        headers = {'jwt': self.jwt['user']}
         request_collection.delete_many({'user_id': self.user_id})
-        response = client.get(f"/requests?jwt={self.jwt['user']}")
+        response = client.get(f"/requests", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": "This user does not have any requests"}
 
@@ -303,19 +302,20 @@ class TestRoutes:
         response = client.post('/login', json=self.admin)
         TestRoutes.jwt['admin'] = response.json()['access_token']
         request_collection.delete_many({'user_id': self.user_id})
-        response = client.get(f"/requests?jwt={self.jwt['admin']}")
+        headers = {'jwt': self.jwt['admin']}
+        response = client.get(f"/requests", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": "This user does not have any requests"}
 
     def test_get_requests_admin(self):
-        print(self.jwt['user'])
-        print(self.jwt['admin'])
-        response = client.post('/requests', json={'request': self.request, 'jwt': self.jwt['user']})
+        headers = {'jwt': self.jwt['user']}
+        response = client.post('/requests', json=self.request, headers=headers)
         TestRoutes.request_id = response.json()['request_id']
-        client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['user']}")
-        response = client.get(f"/requests?jwt={self.jwt['admin']}")
+        headers = {'jwt': self.jwt['user']}
+        client.patch(f"/requests/status/{self.request_id}", headers=headers)
+        headers['jwt'] = self.jwt['admin']
+        response = client.get(f"/requests", headers=headers)
         response = response.json()
-        print(response)
         assert type(response['requests']) is list
         response['requests'][0]['date_receipt'] = str(
             datetime.strptime(response['requests'][0]['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
@@ -330,7 +330,8 @@ class TestRoutes:
         }
 
     def test_get_request_user(self):
-        response = client.get(f"/requests/{self.request_id}?jwt={self.jwt['user']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.get(f"/requests/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -342,7 +343,8 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_get_request_admin(self):
-        response = client.get(f"/requests/{self.request_id}?jwt={self.jwt['admin']}")
+        headers = {'jwt': self.jwt['admin']}
+        response = client.get(f"/requests/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -355,33 +357,38 @@ class TestRoutes:
 
     def test_get_request_user_not_exist(self):
         request_id = '5e7bfee773467953a87e467a'
-        response = client.get(f"/requests/{request_id}?jwt={self.jwt['user']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.get(f"/requests/{request_id}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": "This user does not have request with id=5e7bfee773467953a87e467a"}
 
     def test_get_request_admin_not_exist(self):
         request_id = '5e7bfee773467953a87e467a'
-        response = client.get(f"/requests/{request_id}?jwt={self.jwt['admin']}")
+        headers = {'jwt': self.jwt['admin']}
+        response = client.get(f"/requests/{request_id}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": f"This request ({request_id}) does not exist"}
 
     def test_edit_request_nothing(self):
-        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.patch(f"/requests/{self.request_id}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": "The Title and Description fields are empty"}
 
     def test_edit_request_active(self):
         self.request['title'] = 'New Title'
-        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.patch(f"/requests/{self.request_id}?title={self.request['title']}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": "The status of the request active"}
 
     def test_edit_request_title(self):
-        response = client.post('/requests', json={'request': self.request, 'jwt': self.jwt['user']})
+        headers = {'jwt': self.jwt['user']}
+        response = client.post('/requests', json=self.request, headers=headers)
         TestRoutes.request_id = response.json()['request_id']
 
         self.request['title'] = 'New Title'
-        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}")
+        response = client.patch(f"/requests/{self.request_id}?title={self.request['title']}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
@@ -393,8 +400,9 @@ class TestRoutes:
 
     def test_edit_request_decription(self):
         self.request['description'] = 'New Description'
-        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&"
-                              f"description={self.request['description']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.patch(f"/requests/{self.request_id}?description={self.request['description']}",
+                                headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
@@ -407,8 +415,9 @@ class TestRoutes:
     def test_edit_request_full(self):
         self.request['title'] = 'New Title 2'
         self.request['description'] = 'New Description 2'
-        response = client.patch(f"/requests/{self.request_id}?jwt={self.jwt['user']}&title={self.request['title']}&"
-                              f"description={self.request['description']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.patch(f"/requests/{self.request_id}?title={self.request['title']}&"
+                                f"description={self.request['description']}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
@@ -419,7 +428,8 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_active(self):
-        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['user']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -431,12 +441,14 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_active_again(self):
-        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['user']}")
+        headers = {'jwt': self.jwt['user']}
+        response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": f'This request ({self.request_id}) has the active status'}
 
     def test_edit_status_request_in_progress(self):
-        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['admin']}")
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -448,7 +460,8 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_finished(self):
-        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['admin']}")
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         response['date_receipt'] = str(
@@ -460,7 +473,8 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_finished_again(self):
-        response = client.patch(f"/requests/status/{self.request_id}?jwt={self.jwt['admin']}")
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": f'This request ({self.request_id}) has the finished status'}
 
@@ -603,7 +617,7 @@ class TestOAuth:
 
     def test_create_access_token(self):
         access_token = create_access_token(data={"sub": self.email},
-                                                 expires_delta=self.access_token_expires)
+                                           expires_delta=self.access_token_expires)
         assert access_token.decode() is not None
         TestOAuth.jwt = access_token.decode()
 
@@ -618,7 +632,7 @@ class TestOAuth:
 
     def test_get_current_user_doesnt_exists(self):
         access_token = create_access_token(data={'sub': 'not_exists@email.ru'},
-                                                 expires_delta=self.access_token_expires)
+                                           expires_delta=self.access_token_expires)
         with raises(HTTPException):
             assert get_current_user(access_token.decode())
 

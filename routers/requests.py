@@ -1,4 +1,4 @@
-from fastapi import status, Body, HTTPException, APIRouter
+from fastapi import status, Body, HTTPException, APIRouter, Header
 
 from models import requests
 from utils.auth import get_current_user
@@ -11,28 +11,30 @@ router = APIRouter()
 async def create_request(request: RequestIn = Body(
     ...,
     example={
-        "email": "name@email.ru",
-        "password": "password"
-    }), jwt: str = Body(..., example='key')):
+        "title": "Title request",
+        "description": "Description request",
+        "date_receipt": "2020-03-29 14:10:00"
+    }), jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
     return requests.create_request(request, user._id)
 
 
 @router.get("", status_code=status.HTTP_200_OK)
-async def get_requests(jwt: str):
+async def get_requests(jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
     requests_ = requests.get_requests(user._id)
     return {'requests': [request for request in requests_]}
 
 
 @router.get("/{request_id}", status_code=status.HTTP_200_OK)
-async def get_request(request_id: str, jwt: str):
+async def get_request(request_id: str, jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
     return requests.get_request(request_id, user.role)
 
 
 @router.patch("/{request_id}", status_code=status.HTTP_200_OK, response_model=RequestOut)
-async def edit_request(request_id: str, jwt: str, title: str = None, description: str = None) -> RequestOut:
+async def edit_request(request_id: str, title: str = None, description: str = None,
+                       jwt: str = Header(..., example='key')) -> RequestOut:
     if get_current_user(jwt):
         if title or description:
             return requests.edit_request(request_id, title, description)
@@ -42,6 +44,6 @@ async def edit_request(request_id: str, jwt: str, title: str = None, description
 
 
 @router.patch("/status/{request_id}", status_code=status.HTTP_200_OK)
-async def edit_status_request(request_id: str, jwt: str):
+async def edit_status_request(request_id: str, jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
     return requests.edit_status_request(request_id, user.role)
