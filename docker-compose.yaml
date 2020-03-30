@@ -1,0 +1,50 @@
+version: "3"
+
+volumes:
+  mongodb_volume:
+
+services:
+  mongodb:
+    image: mongo:latest
+    volumes:
+    - mongodb_volume:/data/db
+    restart: always
+    ports:
+    - 27018:27017
+
+  redis:
+    image: redis
+    restart: always
+    command: redis-server
+    ports:
+      - 6379:6379
+
+  realty_service:
+      build: .
+      environment:
+        - URL_MONGODB=mongodb://mongodb:27017
+        - BROKER_URL=redis://redis:6379
+        - RESULT_BACKEND=redis://redis:6379
+      command: uvicorn app:app --reload --host 0.0.0.0 --port 80
+      volumes:
+        - .:/usr/src/app/
+      restart: always
+      ports:
+        - 80:80
+      depends_on:
+        - mongodb
+        - redis
+
+  celery:
+    build: .
+    environment:
+      - BROKER_URL=redis://redis:6379
+      - RESULT_BACKEND=redis://redis:6379
+    command: celery -A celery_app.celery worker -l info
+    volumes:
+      - .:/usr/src/app/
+    links:
+      - redis
+    depends_on:
+      - realty_service
+      - redis
