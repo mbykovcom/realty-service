@@ -2,7 +2,7 @@ from fastapi import status, Body, APIRouter
 
 from celery_app import send_email
 from models.user import UserIn, UserOut, Token
-from models import user as u
+from db import user as u
 router = APIRouter()
 
 

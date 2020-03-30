@@ -13,7 +13,8 @@ from config import Config
 # db_test = client_mongo['test-realty-service']
 from models import requests
 from models.requests import RequestIn, RequestOut
-from models.user import get_user, UserIn, registration, UserOut, UserInDB, login
+from models.user import UserIn, UserOut, UserInDB
+from db.user import get_user, registration, login
 from utils.auth import create_access_token, get_current_user
 from utils.db import user_collection, request_collection
 

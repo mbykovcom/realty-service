@@ -1,6 +1,6 @@
 from fastapi import status, Body, HTTPException, APIRouter, Header
 
-from models import requests
+from db import requests
 from utils.auth import get_current_user
 from models.requests import RequestIn, RequestOut
 

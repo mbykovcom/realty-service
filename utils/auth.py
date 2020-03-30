@@ -31,7 +31,8 @@ def create_access_token(*, data: dict, expires_delta: timedelta = None):
     return encoded_jwt
 
 
-from models.user import TokenData, UserInDB, get_user
+from models.user import TokenData, UserInDB
+from db.user import get_user
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
