@@ -40,7 +40,7 @@ services:
     environment:
       - BROKER_URL=redis://redis:6379
       - RESULT_BACKEND=redis://redis:6379
-    command: celery -A celery_app.celery worker -l info
+    command: celery -A celery_app.celery worker --beat -l info
     volumes:
       - .:/usr/src/app/
     links:

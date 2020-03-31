@@ -6,3 +6,4 @@
 /routers/__pycache__/
 /utils/__pycache__/
 /db/__pycache__/
+celerybeat-schedule
