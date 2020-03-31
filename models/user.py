@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from bson import ObjectId
 from pydantic import BaseModel, Field
 from pydantic.networks import EmailStr
@@ -12,6 +14,7 @@ class UserOut(BaseModel):
     user_id: str = Field(..., description='The id a user')
     email: EmailStr = Field(..., description='The email a user')
     role: str = Field(..., description='The role a user in app')
+    date_registration: str = Field(None, description='Date of user registration in the system')
 
 
 class UserInDB:
@@ -20,6 +23,7 @@ class UserInDB:
         self.email: EmailStr = kwargs['email']
         self.hash_password: str = kwargs['hash_password']
         self.role: str = kwargs['role']
+        self.date_registration: datetime = kwargs['date_registration']
 
 
 class TokenData(BaseModel):

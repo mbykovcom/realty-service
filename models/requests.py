@@ -18,10 +18,20 @@ class RequestOut(BaseModel):
     date_receipt: datetime = Field(..., description='Date and time the request was created')
 
 
+class RequestOutEmployee(RequestOut):
+    user_id: str
+
+
+class RequestOutAdmin(RequestOut):
+    user_id: str
+    employee_id: str
+
+
 class RequestInDB:
     def __init__(self, **kwargs):
         self._id: ObjectId = kwargs['_id']
         self.user_id: str = kwargs['user_id']
+        self.employee_id = kwargs['employee_id']
         self.title: str = kwargs['title']
         self.description: str = kwargs['description']
         self.status: str = kwargs['status']

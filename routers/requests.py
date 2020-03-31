@@ -16,20 +16,22 @@ async def create_request(request: RequestIn = Body(
         "date_receipt": "2020-03-29 14:10:00"
     }), jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
-    return requests.create_request(request, user._id)
+    response = requests.create_request(request, user._id)
+
+    return response
 
 
 @router.get("", status_code=status.HTTP_200_OK)
 async def get_requests(jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
-    requests_ = requests.get_requests(user._id)
+    requests_ = requests.get_requests(user)
     return {'requests': [request for request in requests_]}
 
 
 @router.get("/{request_id}", status_code=status.HTTP_200_OK)
 async def get_request(request_id: str, jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
-    return requests.get_request(request_id, user.role)
+    return requests.get_request(request_id, user)
 
 
 @router.patch("/{request_id}", status_code=status.HTTP_200_OK, response_model=RequestOut)
@@ -46,4 +48,4 @@ async def edit_request(request_id: str, title: str = None, description: str = No
 @router.patch("/status/{request_id}", status_code=status.HTTP_200_OK)
 async def edit_status_request(request_id: str, jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
-    return requests.edit_status_request(request_id, user.role)
+    return requests.edit_status_request(request_id, user)

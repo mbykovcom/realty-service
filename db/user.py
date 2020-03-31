@@ -1,5 +1,6 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 
+import pymongo
 from fastapi import HTTPException
 from starlette import status
 
@@ -32,14 +33,16 @@ def registration(user_: UserIn, role: str = 'user') -> UserOut:
     user_db = {}
     user_id = None
     try:
-        user_db = {'email': user_.email, 'hash_password': get_password_hash(user_.password), 'role': role}
+        user_db = {'email': user_.email, 'hash_password': get_password_hash(user_.password), 'role': role,
+                   'date_registration': datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         user_id = str(user_collection.insert_one(user_db).inserted_id)
     except BaseException as e:  # If an exception is raised when adding to the database
         print(f'Error: {e}')
         if user_collection:
             user_collection.remove({'_id': user_id})
     if user_id:
-        return UserOut(user_id=user_id, email=user_db['email'], role=role)
+        return UserOut(user_id=user_id, email=user_db['email'], role=role,
+                       date_registration=user_db['date_registration'])
     else:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to add a user')
 
@@ -65,3 +68,16 @@ def login(user_: UserIn) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='The user with this email address does not exist',
                             headers={"WWW-Authenticate": "Bearer"}, )
+
+
+def get_employees() -> list:    # TODO Написать тесты
+    """Get users with the employee role
+
+    :return: list employees (UserOut)
+    """
+    employees = user_collection.find({'role': 'employee'}).sort('date_registration', pymongo.DESCENDING)
+    if employees:
+        return [UserOut(user_id=str(employee['_id']), email=employee['email'], role=employee['role'],
+                        date_registration=employee['date_registration']) for employee in employees]
+    else:
+        return []
