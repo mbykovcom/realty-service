@@ -6,9 +6,6 @@ variables:
   RSA_PUBLIC_KEY: $TEST_RSA_PUBLIC_KEY
   RSA_PRIVATE_KEY: $TEST_RSA_PRIVATE_KEY
 
-before_script:
-  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
-
 stages:
   - test
   - build
@@ -17,21 +14,24 @@ test:
   stage: test
   services:
     - docker:dind
-    - mongo:4.2.1
+    - mongo:lates
   script:
-    - export MONGO_TEST_HOST="mongo"
-    - export MONGO_TEST_PORT=27017
     - apk update
     - apk add gcc build-base musl-dev zlib zlib-dev libpng-dev libffi-dev openssl-dev libgcc linux-headers python3 python3-dev
     - python3 -m pip install --upgrade pip
     - pip install --no-cache-dir -r requirements.txt
-    - pytest --verbose --showlocals --tb=native --cov=db --cov=routers --cov=utils
+    - docker build -t $CONTAINER_TEST_IMAGE .
+    - docker run --name app --rm -i -t $CONTAINER_TEST_IMAGE bash
+    - docker exec -d uvicorn app:app --reload
+    - docker exec -d celery -A celery_app.celery worker --beat -l info
+    - pytest --verbose --showlocals --tb=auto --cov=db --cov=routers --cov=utils
 
 build:
   stage: build
   services:
     - docker:dind
   script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
     - docker build --pull -t $CONTAINER_TEST_IMAGE .
     - docker push $CONTAINER_TEST_IMAGE
   only:
