@@ -21,7 +21,8 @@ test:
     - python3 -m pip install --upgrade pip
     - pip install --no-cache-dir -r requirements.txt
     - docker build -t $CONTAINER_TEST_IMAGE .
-    - docker run --name app --rm -i -t $CONTAINER_TEST_IMAGE bash
+    - docker run --rm -d --name realty-service $CONTAINER_TEST_IMAGE
+    - docker exec -i -t $CONTAINER_TEST_IMAGE bash
     - docker exec -d uvicorn app:app --reload
     - docker exec -d celery -A celery_app.celery worker --beat -l info
     - pytest --verbose --showlocals --tb=auto --cov=db --cov=routers --cov=utils
