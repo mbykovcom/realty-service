@@ -20,7 +20,7 @@ class Config(object):
 
 class ConfigCelery:
     broker_url = os.environ.get('BROKER_URL', 'redis://localhost:6379')
-    result_backend = os.environ.get('RESULT_BACKEND', 'redis://localhost:6379')
+    # result_backend = os.environ.get('RESULT_BACKEND', 'redis://localhost:6379')
     task_serializer = os.environ.get('TASK_SERIALIZER', 'json')
     result_serializer = os.environ.get('RESULT_SERIALIZER', 'json')
     accept_content = os.environ.get('ACCEPT_CONTENT', ['json'])

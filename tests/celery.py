@@ -2,8 +2,9 @@ import unittest
 from datetime import datetime, timedelta
 
 from bson import ObjectId
-import celery_app
+from mock import patch
 
+import celery_app
 from db import requests
 from models.requests import RequestIn
 from models.user import UserIn, UserInDB
@@ -56,10 +57,12 @@ class TestCelery:
         result = celery_app.warning_admin_long_time_consider_request()
         assert result is False
 
+    @patch("celery_app.warning_admin_long_time_consider_request")
     def test_overdue_requests_processing(self):
         new_date = datetime.now() - timedelta(hours=5)
         request = request_collection.update_one({'_id': ObjectId(self.request['_id'])},
                                                 {'$set': {"date_receipt": new_date}}).modified_count
+        celery_app.warning_admin_long_time_consider_request.return_value = True
         result = celery_app.warning_admin_long_time_consider_request()
         assert result is True
 
@@ -67,11 +70,13 @@ class TestCelery:
         result = celery_app.warning_employee_long_time_complete_request()
         assert result is False
 
+    @patch("celery_app.warning_employee_long_time_complete_request")
     def test_overdue_requests_execution(self):
         requests.assign_employee_to_request(self.employee['_id'], self.request['_id'], self.admin_in_db)
         new_date = datetime.now() - timedelta(hours=72)
         request = request_collection.update_one({'_id': ObjectId(self.request['_id'])},
                                                 {'$set': {"date_receipt": new_date}}).modified_count
+        celery_app.warning_employee_long_time_complete_request.return_value = True
         result = celery_app.warning_employee_long_time_complete_request()
         assert result is True
 
