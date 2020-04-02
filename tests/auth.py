@@ -5,8 +5,10 @@ from fastapi import HTTPException
 from pytest import raises
 
 from config import Config
-from models.user import UserInDB
+from db.user import registration
+from models.user import UserInDB, UserIn
 from utils.auth import create_access_token, get_current_user
+from utils.db import user_collection, request_collection
 
 
 class TestOAuth:
@@ -15,6 +17,12 @@ class TestOAuth:
         cls.email = 'admin@example.com'
         cls.jwt = None
         cls.access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
+        registration(UserIn(email='admin@example.com', password='admin'), 'admin')
+
+    def teardown_class(cls):
+        user_collection.delete_many({})
+        request_collection.delete_many({})
+
 
     def test_create_access_token(self):
         access_token = create_access_token(data={"sub": self.email},

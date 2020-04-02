@@ -50,12 +50,11 @@ class TestService:
         cls.incorrect_user_id = '5e7c92cf6e66c5e9a8b9e005'
         cls.incorrect_request_id = '5e7c92cf6e66c5e9a8b9e005'
 
+        registration(UserIn(email='admin@example.com', password='admin'), 'admin')
+
     def teardown_class(cls):
-        user_collection.delete_many({'role': cls.user['role']})
-        user_collection.delete_one({'_id': ObjectId(cls.admin['_id'])})
-        user_collection.delete_many({'role': cls.employee['role']})
-        request_collection.delete_many({'user_id': ObjectId(cls.user['_id'])})
-        request_collection.delete_many({'user_id': ObjectId(cls.admin['_id'])})
+        user_collection.delete_many({})
+        request_collection.delete_many({})
 
     def test_registration_user(self):
         role = 'user'
@@ -72,7 +71,7 @@ class TestService:
 
     def test_registration_admin(self):
         role = 'admin'
-        result = registration(self.new_admin, role='admin')
+        result = registration(self.new_admin, role=role)
         TestService.admin['_id'] = result.user_id
         TestService.admin['hash_password'] = get_password_hash(self.admin['password'])
         TestService.admin['date_registration'] = result.date_registration

@@ -2,7 +2,6 @@ import unittest
 from datetime import datetime, timedelta
 
 from bson import ObjectId
-
 import celery_app
 
 from db import requests
@@ -42,11 +41,12 @@ class TestCelery:
                                    date_receipt=cls.request['date_receipt'])
         cls.request['_id'] = requests.create_request(cls.request_in, ObjectId(cls.user['_id'])).request_id
         requests.edit_status_request(cls.request['_id'], cls.user_in_db)
+        registration(UserIn(email='admin@example.com', password='admin'), 'admin')
+
 
     def teardown_class(cls):
-        user_collection.delete_many({'role': 'employee'})
-        user_collection.delete_many({'role': 'user'})
-        request_collection.delete_many({'user_id': ObjectId(cls.user['_id'])})
+        user_collection.delete_many({})
+        request_collection.delete_many({})
 
     def test_send_email(self):
         result = celery_app.send_email('bykov@appvelox.ru', 'Test', 'Test')

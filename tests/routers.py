@@ -6,11 +6,11 @@ from fastapi.testclient import TestClient
 
 from app import app
 
-from db.user import get_user
+from db.user import get_user, registration
+from models.user import UserIn
 from utils.db import user_collection, request_collection
 
 client = TestClient(app)
-
 
 class TestRoutes:
 
@@ -24,11 +24,12 @@ class TestRoutes:
                        'date_receipt': datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         cls.request_id = None
         cls.jwt = {'user': None, 'admin': None, 'employee': None}
+        registration(UserIn(email='admin@example.com', password='admin'), 'admin')
+
 
     def teardown_class(cls):
-        user_collection.delete_one({'_id': cls.user_id})
-        user_collection.delete_many({'role': 'employee'})
-        request_collection.delete_many({'user_id': cls.user_id})
+        user_collection.delete_many({})
+        request_collection.delete_many({})
 
     def test_registration_user(self):
         response = client.post('/registration', json=self.user)
