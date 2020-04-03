@@ -5,3 +5,7 @@
 /models/__pycache__/
 /routers/__pycache__/
 /utils/__pycache__/
+/db/__pycache__/
+celerybeat-schedule
+.coverage
+tests/__pycache__/

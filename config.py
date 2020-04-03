@@ -13,6 +13,9 @@ class Config(object):
     EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', '9Fhc7RnZ1kMV')
     ALGORITHM = os.environ.get('ALGORITHM', "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES = os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', 30)
+    CHECK_OVERDUE_REQUEST_PERIOD = os.environ.get('CHECK_OVERDUE_REQUEST_PERIOD', 15)
+    CONSIDERATION_REQUEST_TIME = os.environ.get('CONSIDERATION_REQUEST_TIME', 5)
+    REQUEST_EXECUTION_TIME = os.environ.get('REQUEST_EXECUTION_TIME', 72)
 
 
 class ConfigCelery:
