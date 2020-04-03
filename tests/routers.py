@@ -3,9 +3,7 @@ import unittest
 from datetime import datetime
 
 from fastapi.testclient import TestClient
-from mock import patch
 
-import celery_app
 from app import app
 
 from db.user import get_user, registration
@@ -13,6 +11,7 @@ from models.user import UserIn
 from utils.db import user_collection, request_collection
 
 client = TestClient(app)
+
 
 class TestRoutes:
 
@@ -28,14 +27,12 @@ class TestRoutes:
         cls.jwt = {'user': None, 'admin': None, 'employee': None}
         registration(UserIn(email='admin@example.com', password='admin'), 'admin')
 
-
     def teardown_class(cls):
         user_collection.delete_many({})
         request_collection.delete_many({})
 
-    @patch("celery_app.send_email")
     def test_registration_user(self):
-        response = client.post('/registration', json=self.user)
+        response = client.post('/registration', json=self.user,)
         TestRoutes.user_id = get_user(self.user['email'])._id
         assert response.status_code == 201
         assert response.json() == {"user_id": str(self.user_id),
@@ -486,7 +483,6 @@ class TestRoutes:
         assert response.status_code == 400
         assert response.json() == {"detail": f'This request ({self.request_id}) has the finished status'}
 
-    @patch("celery_app.send_email")
     def test_registration_employee(self):
         headers = {'jwt': self.jwt['admin']}
         response = client.post('/employee', json=self.employee, headers=headers)
@@ -563,6 +559,7 @@ class TestRoutes:
             'status': response['status'],
             'title': self.request['title'],
             'user_id': response['user_id']}
+
 
 if __name__ == '__main__':
     unittest.main()

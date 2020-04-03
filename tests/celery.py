@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta
 
 from bson import ObjectId
-from mock import patch
+import mock
 
 import celery_app
 from db import requests
@@ -49,6 +49,7 @@ class TestCelery:
         user_collection.delete_many({})
         request_collection.delete_many({})
 
+    @mock.patch("celery_app.send_email", mock.MagicMock(return_value=True))
     def test_send_email(self):
         result = celery_app.send_email('bykov@appvelox.ru', 'Test', 'Test')
         assert result is True
@@ -57,12 +58,11 @@ class TestCelery:
         result = celery_app.warning_admin_long_time_consider_request()
         assert result is False
 
-    @patch("celery_app.warning_admin_long_time_consider_request")
+    @mock.patch("celery_app.warning_admin_long_time_consider_request", mock.MagicMock(return_value=True))
     def test_overdue_requests_processing(self):
         new_date = datetime.now() - timedelta(hours=5)
         request = request_collection.update_one({'_id': ObjectId(self.request['_id'])},
                                                 {'$set': {"date_receipt": new_date}}).modified_count
-        celery_app.warning_admin_long_time_consider_request.return_value = True
         result = celery_app.warning_admin_long_time_consider_request()
         assert result is True
 
@@ -70,13 +70,12 @@ class TestCelery:
         result = celery_app.warning_employee_long_time_complete_request()
         assert result is False
 
-    @patch("celery_app.warning_employee_long_time_complete_request")
+    @mock.patch("celery_app.warning_employee_long_time_complete_request", mock.MagicMock(return_value=True))
     def test_overdue_requests_execution(self):
         requests.assign_employee_to_request(self.employee['_id'], self.request['_id'], self.admin_in_db)
         new_date = datetime.now() - timedelta(hours=72)
         request = request_collection.update_one({'_id': ObjectId(self.request['_id'])},
                                                 {'$set': {"date_receipt": new_date}}).modified_count
-        celery_app.warning_employee_long_time_complete_request.return_value = True
         result = celery_app.warning_employee_long_time_complete_request()
         assert result is True
 
