@@ -53,7 +53,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user"
+                        "user_data"
                     ],
                     "msg": "field required",
                     "type": "value_error.missing"
@@ -69,7 +69,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "password"
                     ],
                     "msg": "field required",
@@ -86,7 +86,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "email"
                     ],
                     "msg": "field required",
@@ -109,7 +109,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user"
+                        "user_data"
                     ],
                     "msg": "field required",
                     "type": "value_error.missing"
@@ -125,7 +125,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "password"
                     ],
                     "msg": "field required",
@@ -142,7 +142,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "email"
                     ],
                     "msg": "field required",
@@ -179,7 +179,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "request"
+                        "request_data"
                     ],
                     "msg": "field required",
                     "type": "value_error.missing"
@@ -207,7 +207,7 @@ class TestRoutes:
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
-                {'loc': ['body', 'request'],
+                {'loc': ['body', 'request_data'],
                  'msg': 'field required',
                  'type': 'value_error.missing'}
             ]
@@ -223,7 +223,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "request",
+                        "request_data",
                         "title"
                     ],
                     "msg": "field required",
@@ -242,7 +242,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "request",
+                        "request_data",
                         "description"
                     ],
                     "msg": "field required",
@@ -261,7 +261,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "request",
+                        "request_data",
                         "date_receipt"
                     ],
                     "msg": "field required",

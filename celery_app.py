@@ -68,7 +68,7 @@ def warning_admin_long_time_consider_request():
                                                                 f"(> {Config.CONSIDERATION_REQUEST_TIME} hours): "
                                                                 f"{request['title']} id = {request['_id']}")
     except Exception as error:
-        print(error)
+        print(f'Error: {error}')
         return False
     return True
 
@@ -92,6 +92,6 @@ def warning_employee_long_time_complete_request():
                                                                 f"(> {Config.REQUEST_EXECUTION_TIME} hours): "
                                                                 f"{request['title']} id = {request['_id']}")
     except Exception as error:
-        print(error)
+        print(f'Error: {error}')
         return False
     return True
