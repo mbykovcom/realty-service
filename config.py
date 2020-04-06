@@ -16,6 +16,8 @@ class Config(object):
     CHECK_OVERDUE_REQUEST_PERIOD = os.environ.get('CHECK_OVERDUE_REQUEST_PERIOD', 15)
     CONSIDERATION_REQUEST_TIME = os.environ.get('CONSIDERATION_REQUEST_TIME', 5)
     REQUEST_EXECUTION_TIME = os.environ.get('REQUEST_EXECUTION_TIME', 72)
+    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@realty.ru')
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin')
 
 
 class ConfigCelery:

@@ -50,7 +50,7 @@ def get_requests(user_data: UserInDB) -> list:
             RequestOutEmployee(request_id=str(request['_id']), user_id=str(request['user_id']), title=request['title'],
                                description=request['description'], status=request['status'],
                                date_receipt=request['date_receipt']) for request in cursor]
-    elif user_data.role == 'admin':
+    elif user_data.role in ['admin', 'administrator']:
         cursor = request_collection.find({'status': {'$not': {'$eq': 'draft'}}})
         requests = [
             RequestOutAdmin(request_id=str(request['_id']), user_id=str(request['user_id']),
@@ -98,7 +98,7 @@ def get_request(request_id: str, user_data: UserInDB) -> RequestOut:
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail=f'This request ({request_id}) does not exist')
-    elif user_data.role == 'admin':
+    elif user_data.role in ['admin', 'administrator']:
         request = request_collection.find_one({'$and': [
             {'_id': ObjectId(request_id)},
             {'status': {'$not': {'$eq': 'draft'}}}
@@ -169,7 +169,7 @@ def edit_status_request(request_id: str,
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'This request ({request_id}) '
                                                                                 f'has the active status')
-    elif user.role == 'admin' or (user.role == 'employee' and request['employee_id'] == user._id):
+    elif user.role in ['admin', 'administrator'] or (user.role == 'employee' and request['employee_id'] == user._id):
         if request['status'] == 'active':
             result = request_collection.update_one({'_id': ObjectId(request_id)},
                                                    {'$set': {"status": 'in_progress'}}).modified_count
@@ -196,7 +196,7 @@ def edit_status_request(request_id: str,
             return RequestOutEmployee(request_id=str(request['_id']), user_id=str(request['user_id']),
                                       title=request['title'], description=request['description'],
                                       status=request['status'], date_receipt=request['date_receipt'])
-        elif user.role == 'admin':
+        elif user.role in ['admin', 'administrator']:
             return RequestOutAdmin(request_id=str(request['_id']), user_id=str(request['user_id']),
                                    employee_id=request['employee_id'], title=request['title'],
                                    description=request['description'], status=request['status'],
@@ -206,7 +206,7 @@ def edit_status_request(request_id: str,
 
 
 def assign_employee_to_request(employee_id: str, request_id: str,
-                               admin: UserInDB) -> Union[RequestOutAdmin, RequestOut]:  # TODO Написать тесты
+                               admin: UserInDB) -> Union[RequestOutAdmin, RequestOut]:
     request = get_request(request_id, admin)
     if request.status != 'active':
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'This request ({request_id}) '

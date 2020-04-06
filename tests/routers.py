@@ -7,8 +7,9 @@ from fastapi.testclient import TestClient
 from app import app
 
 from db.user import get_user, registration
+from models.building import Coordinates
 from models.user import UserIn
-from utils.db import user_collection, request_collection
+from utils.db import user_collection, request_collection, building_collection
 
 client = TestClient(app)
 
@@ -16,32 +17,155 @@ client = TestClient(app)
 class TestRoutes:
 
     def setup_class(cls):
-        cls.admin = {'email': 'admin@example.com', 'password': 'admin'}
-        cls.user = {'email': 'user@realty.ru', 'password': 'user'}
+        cls.admin = {'email': 'admin@erealty.ru', 'password': 'admin'}
+        registration(UserIn(email=cls.admin['email'], password=cls.admin['password']), 'admin')
+        cls.administrator = {'email': 'admin@example.com', 'password': 'admin', 'building_id': None}
+        cls.user = {'email': 'user@realty.ru', 'password': 'user', 'building_id': None}
         cls.user_id = None
-        cls.employee = {'email': 'employee@realty.ru', 'password': 'employee'}
+        cls.employee = {'email': 'employee@realty.ru', 'password': 'employee', 'building_id': None}
         cls.employee_id = None
         cls.request = {'title': 'Test Title', 'description': 'Test Description',
                        'date_receipt': datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         cls.request_id = None
-        cls.jwt = {'user': None, 'admin': None, 'employee': None}
-        registration(UserIn(email='admin@example.com', password='admin'), 'admin')
+        location_building = Coordinates(59.93904113769531, 30.3157901763916)
+        cls.building = {'_id': None, 'name': 'Name Building', 'description': 'Description Building', 'square': 100.2,
+                        'location': location_building}
+
+        registration(UserIn(email=cls.administrator['email'], password=cls.administrator['password'],
+                            building_id=cls.administrator['building_id']), 'administrator')
+        cls.jwt = {'admin': None, 'administrator': None, 'user': None, 'employee': None}
 
     def teardown_class(cls):
         user_collection.delete_many({})
         request_collection.delete_many({})
+        building_collection.delete_many({})
+
+    def test_create_building(self):
+        json = {
+            'name': self.building['name'],
+            'description': self.building['description'],
+            'location': self.building['location'],
+            'square': self.building['square']
+        }
+        TestRoutes.jwt['admin'] = client.post('/login', json=self.admin).json()['access_token']
+        headers = {'jwt': self.jwt['admin']}
+        response = client.post('/building', json=json, headers=headers)
+        assert response.status_code == 201
+        response = response.json()
+        TestRoutes.building['_id'] = TestRoutes.administrator['building_id'] = TestRoutes.user['building_id'] = \
+           TestRoutes.employee['building_id'] = response['building_id']
+        assert response == {"building_id": response['building_id'],
+                            "name": self.building['name'],
+                            "description": self.building['description'],
+                            "location": [self.building['location'].lat, self.building['location'].lon],
+                            "square": self.building['square']}
+
+    def test_get_buildings(self):
+        headers = {'jwt': self.jwt['admin']}
+        response = client.get("/building", headers=headers)
+        assert response.status_code == 200
+        response = response.json()
+        assert type(response['buildings']) is list
+        assert response == {'buildings':
+            [
+                {"building_id": response['buildings'][0]['building_id'],
+                 "name": self.building['name'],
+                 "description": self.building['description'],
+                 "location": [self.building['location'].lat, self.building['location'].lon],
+                 "square": self.building['square']}
+            ]
+        }
+
+    def test_get_building(self):
+        headers = {'jwt': self.jwt['admin']}
+        response = client.get(f"/building/{self.building['_id']}", headers=headers)
+        assert response.status_code == 200
+        response = response.json()
+        assert response == {"building_id": response['building_id'],
+                            "name": self.building['name'],
+                            "description": self.building['description'],
+                            "location": [self.building['location'].lat, self.building['location'].lon],
+                            "square": self.building['square']}
+
+    def test_edit_building_nothing(self):
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/building/{self.building['_id']}", headers=headers)
+        assert response.status_code == 400
+        assert response.json() == {"detail": "The Name, Description and Square fields are empty"}
+
+    def test_edit_building_name(self):
+        self.building['name'] = 'New Name'
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/building/{self.building['_id']}?name={self.building['name']}", headers=headers)
+        assert response.status_code == 200
+        response = response.json()
+        assert response == {"building_id": response['building_id'],
+                            "name": self.building['name'],
+                            "description": self.building['description'],
+                            "location": [self.building['location'].lat, self.building['location'].lon],
+                            "square": self.building['square']}
+
+    def test_edit_building_description(self):
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/building/{self.building['_id']}?description={self.building['description']}",
+                                headers=headers)
+        assert response.status_code == 200
+        response = response.json()
+        assert response == {"building_id": response['building_id'],
+                            "name": self.building['name'],
+                            "description": self.building['description'],
+                            "location": [self.building['location'].lat, self.building['location'].lon],
+                            "square": self.building['square']}
+
+    def test_edit_building_square(self):
+        self.request['square'] = 155.5
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/building/{self.building['_id']}?square={self.building['square']}", headers=headers)
+        assert response.status_code == 200
+        response = response.json()
+        assert response == {"building_id": response['building_id'],
+                            "name": self.building['name'],
+                            "description": self.building['description'],
+                            "location": [self.building['location'].lat, self.building['location'].lon],
+                            "square": self.building['square']}
+
+    def test_edit_building_full(self):
+        self.building['name'] = 'New Name 2'
+        self.building['description'] = 'New Description 2'
+        self.building['square'] = 201.1
+        headers = {'jwt': self.jwt['admin']}
+        response = client.patch(f"/building/{self.building['_id']}?name={self.building['name']}&"
+                                f"description={self.building['description']}&square={self.building['square']}",
+                                headers=headers)
+        assert response.status_code == 200
+        response = response.json()
+        assert response == {"building_id": response['building_id'],
+                            "name": self.building['name'],
+                            "description": self.building['description'],
+                            "location": [self.building['location'].lat, self.building['location'].lon],
+                            "square": self.building['square']}
 
     def test_registration_user(self):
-        response = client.post('/registration', json=self.user,)
+        json = {'user_data': self.user, 'location': {'lat': 59.9384481, 'lon': 30.316656}}
+        response = client.post('/registration', json=json)
         TestRoutes.user_id = get_user(self.user['email'])._id
         assert response.status_code == 201
         assert response.json() == {"user_id": str(self.user_id),
                                    "email": self.user['email'],
                                    "role": "user",
-                                   "date_registration": response.json()['date_registration']}
+                                   "date_registration": response.json()['date_registration'],
+                                   "building_id": self.user['building_id']}
+
+    def test_registration_user_outside(self):
+        json = {'user_data': self.user, 'location': {'lat': 59.938123, 'lon':  30.317247}}
+        response = client.post('/registration', json=json)
+        assert response.status_code == 400
+        assert response.json() == {"detail": 'The user is located outside the building'}
 
     def test_registration_user_exists(self):
-        response = client.post('/registration', json=self.user)
+        json = {'user_data': self.user, 'location': {'lat': 59.9384481, 'lon': 30.316656}}
+        response = client.post('/registration', json=json)
+        print(response.json(), response.status_code)
         assert response.status_code == 400
         assert response.json() == {"detail": "A user with this email already exists"}
 
@@ -53,7 +177,15 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user"
+                        "user_data"
+                    ],
+                    "msg": "field required",
+                    "type": "value_error.missing"
+                },
+                {
+                    "loc": [
+                        "body",
+                        "location"
                     ],
                     "msg": "field required",
                     "type": "value_error.missing"
@@ -62,14 +194,16 @@ class TestRoutes:
         }
 
     def test_registration_without_password(self):
-        response = client.post('/registration', json={'email': self.user['email']})
+        json = {'user_data': {'email': self.user['email']},
+                'location': {'lat': 59.9384481, 'lon': 30.316656}}
+        response = client.post('/registration', json=json)
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "password"
                     ],
                     "msg": "field required",
@@ -79,14 +213,16 @@ class TestRoutes:
         }
 
     def test_registration_without_email(self):
-        response = client.post('/registration', json={'password': self.user['password']})
+        json = {'user_data': {'password': self.user['password']},
+                'location': {'lat': 59.9384481, 'lon': 30.316656}}
+        response = client.post('/registration', json=json)
         assert response.status_code == 422
         assert response.json() == {
             "detail": [
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "email"
                     ],
                     "msg": "field required",
@@ -109,7 +245,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user"
+                        "user_data"
                     ],
                     "msg": "field required",
                     "type": "value_error.missing"
@@ -125,7 +261,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "password"
                     ],
                     "msg": "field required",
@@ -142,7 +278,7 @@ class TestRoutes:
                 {
                     "loc": [
                         "body",
-                        "user",
+                        "user_data",
                         "email"
                     ],
                     "msg": "field required",
@@ -295,22 +431,22 @@ class TestRoutes:
         assert response.status_code == 400
         assert response.json() == {"detail": "This user does not have any requests"}
 
-    def test_get_requests_admin_empty(self):
-        response = client.post('/login', json=self.admin)
-        TestRoutes.jwt['admin'] = response.json()['access_token']
+    def test_get_requests_administrator_empty(self):
+        response = client.post('/login', json=self.administrator)
+        TestRoutes.jwt['administrator'] = response.json()['access_token']
         request_collection.delete_many({'user_id': self.user_id})
-        headers = {'jwt': self.jwt['admin']}
+        headers = {'jwt': self.jwt['administrator']}
         response = client.get(f"/requests", headers=headers)
         assert response.status_code == 400
-        assert response.json() == {"detail": "This admin does not have any requests"}
+        assert response.json() == {"detail": "This administrator does not have any requests"}
 
-    def test_get_requests_admin(self):
+    def test_get_requests_administrator(self):
         headers = {'jwt': self.jwt['user']}
         response = client.post('/requests', json=self.request, headers=headers)
         TestRoutes.request_id = response.json()['request_id']
         headers = {'jwt': self.jwt['user']}
         client.patch(f"/requests/status/{self.request_id}", headers=headers)
-        headers['jwt'] = self.jwt['admin']
+        headers['jwt'] = self.jwt['administrator']
         response = client.get(f"/requests", headers=headers)
         response = response.json()
         assert type(response['requests']) is list
@@ -341,8 +477,8 @@ class TestRoutes:
                             "status": "active",
                             "date_receipt": self.request['date_receipt']}
 
-    def test_get_request_admin(self):
-        headers = {'jwt': self.jwt['admin']}
+    def test_get_request_administrator(self):
+        headers = {'jwt': self.jwt['administrator']}
         response = client.get(f"/requests/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
@@ -363,9 +499,9 @@ class TestRoutes:
         assert response.status_code == 400
         assert response.json() == {"detail": "This user does not have request with id=5e7bfee773467953a87e467a"}
 
-    def test_get_request_admin_not_exist(self):
+    def test_get_request_administrator_not_exist(self):
         request_id = '5e7bfee773467953a87e467a'
-        headers = {'jwt': self.jwt['admin']}
+        headers = {'jwt': self.jwt['administrator']}
         response = client.get(f"/requests/{request_id}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": f"This request ({request_id}) does not exist"}
@@ -448,7 +584,7 @@ class TestRoutes:
         assert response.json() == {"detail": f'This request ({self.request_id}) has the active status'}
 
     def test_edit_status_request_in_progress(self):
-        headers = {'jwt': self.jwt['admin']}
+        headers = {'jwt': self.jwt['administrator']}
         response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
@@ -463,7 +599,7 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_finished(self):
-        headers = {'jwt': self.jwt['admin']}
+        headers = {'jwt': self.jwt['administrator']}
         response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 200
         response = response.json()
@@ -478,27 +614,30 @@ class TestRoutes:
                             "date_receipt": self.request['date_receipt']}
 
     def test_edit_status_request_finished_again(self):
-        headers = {'jwt': self.jwt['admin']}
+        headers = {'jwt': self.jwt['administrator']}
         response = client.patch(f"/requests/status/{self.request_id}", headers=headers)
         assert response.status_code == 400
         assert response.json() == {"detail": f'This request ({self.request_id}) has the finished status'}
 
     def test_registration_employee(self):
-        headers = {'jwt': self.jwt['admin']}
-        response = client.post('/employee', json=self.employee, headers=headers)
+        json = {'user_data': self.employee, 'location': {'lat': 59.9384481, 'lon': 30.316656}}
+        headers = {'jwt': self.jwt['administrator']}
+        response = client.post('/employee', json=json, headers=headers)
         TestRoutes.employee_id = get_user(self.employee['email'])._id
         assert response.status_code == 201
         assert response.json() == {"user_id": response.json()['user_id'],
                                    "email": self.employee['email'],
                                    "role": "employee",
-                                   "date_registration": response.json()['date_registration']}
+                                   "date_registration": response.json()['date_registration'],
+                                   "building_id": self.employee['building_id']}
 
     def test_get_employees(self):
-        headers = {'jwt': self.jwt['admin']}
+        headers = {'jwt': self.jwt['administrator']}
         new_employee = self.employee.copy()
         time.sleep(1)
         new_employee['email'] = 'new_employee@realty.ru'
-        client.post('/employee', json=new_employee, headers=headers)
+        json = {'user_data': new_employee, 'location': {'lat': 59.9384481, 'lon': 30.316656}}
+        client.post('/employee', json=json, headers=headers)
         response = client.get('/employee', headers=headers)
         assert response.status_code == 200
         response = response.json()
@@ -506,7 +645,8 @@ class TestRoutes:
         assert response['employees'][0] == {'date_registration': response['employees'][0]['date_registration'],
                                             'email': new_employee['email'],
                                             'role': 'employee',
-                                            'user_id': response['employees'][0]['user_id']}
+                                            'user_id': response['employees'][0]['user_id'],
+                                            "building_id": response['employees'][0]['building_id']}
 
     def test_employee_get_requests_empty(self):
         response = client.post('/login', json=self.employee)
@@ -520,7 +660,7 @@ class TestRoutes:
         headers = {'jwt': self.jwt['user']}
         request_id = client.post('/requests', json=self.request, headers=headers).json()['request_id']
         client.patch(f'/requests/status/{request_id}', headers=headers).json()
-        headers['jwt'] = self.jwt['admin']
+        headers['jwt'] = self.jwt['administrator']
         response = client.patch(f"/employee/assign?employee_id={self.employee_id}&request_id={request_id}",
                                 headers=headers)
         assert response.status_code == 200

@@ -23,7 +23,6 @@ class TestOAuth:
         user_collection.delete_many({})
         request_collection.delete_many({})
 
-
     def test_create_access_token(self):
         access_token = create_access_token(data={"sub": self.email},
                                            expires_delta=self.access_token_expires)
@@ -44,6 +43,7 @@ class TestOAuth:
                                            expires_delta=self.access_token_expires)
         with raises(HTTPException):
             assert get_current_user(access_token.decode())
+
 
 if __name__ == '__main__':
     unittest.main()

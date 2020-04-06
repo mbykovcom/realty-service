@@ -20,7 +20,7 @@ class TestCelery:
                      'role': 'admin', 'date_registration': None}
         cls.admin_in_db = UserInDB(_id=cls.admin['_id'], email=cls.admin['email'],
                                    hash_password=get_password_hash(cls.admin['password']), role=cls.admin['role'],
-                                   date_registration=cls.admin['date_registration'])
+                                   date_registration=cls.admin['date_registration'], building_id=None)
 
         cls.employee = {'_id': None, 'email': 'employee@celery.ru', 'password': 'employee'}
         cls.employee_in = UserIn(email=cls.employee['email'], password=cls.employee['password'])
@@ -34,7 +34,7 @@ class TestCelery:
         cls.user['date_registration'] = data_user.date_registration
         cls.user_in_db = UserInDB(_id=ObjectId(cls.user['_id']), email=cls.user['email'],
                                   hash_password=get_password_hash(cls.user['password']), role=cls.user['role'],
-                                  date_registration=cls.user['date_registration'])
+                                  date_registration=cls.user['date_registration'], building_id=None)
 
         cls.request = {'_id': None, 'title': 'Test Title', 'description': 'Test Description',
                        'date_receipt': datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'status': None}

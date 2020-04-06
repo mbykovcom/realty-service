@@ -11,6 +11,8 @@ coverage==5.0.4
 dnspython==1.16.0
 email-validator==1.0.5
 fastapi==0.52.0
+geographiclib==1.50
+geopy==1.21.0
 h11==0.9.0
 httptools==0.1.1
 idna==2.9
