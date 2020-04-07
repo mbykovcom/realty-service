@@ -8,7 +8,6 @@ from config import Config
 from models.user import UserIn, UserOut, UserInDB
 from utils.auth import get_password_hash, verify_password, create_access_token
 from utils.db import user_collection
-from utils.location import check_location
 
 
 def get_user(email: str) -> UserInDB:
@@ -44,7 +43,7 @@ def registration(user_data: UserIn, role: str = 'user') -> HTTPException or User
             user_collection.remove({'_id': user_id})
     if user_id:
         return UserOut(user_id=user_id, email=user_db['email'], role=role,
-                       date_registration=user_db['date_registration'], building_id=user_data.building_id)
+                       date_registration=user_db['date_registration'], building_id=user_db['building_id'])
     else:
         return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to add a user')
 
@@ -72,14 +71,46 @@ def login(user_data: UserIn) -> dict:
                             headers={"WWW-Authenticate": "Bearer"}, )
 
 
-def get_employees() -> list:    # TODO Написать тесты
+def get_users(role: str = None, building_id: str = None) -> list:
+    """"Get all users filtered by roles or building
+
+    :param role: role filter
+    :param building_id: building filter
+    :return: list users (UserOut)
+    """
+    filter = {}
+    if role:
+        if role not in ['user', 'administrator', 'employee']:
+            raise HTTPException(status_code=400, detail='The wrong role')
+        filter['role'] = role
+    if building_id:
+        filter['building_id'] = building_id
+    if len(filter) != 2:
+        users = user_collection.find(filter)
+    else:
+        users = user_collection.find({'$and': [
+            {'role': filter['role']},
+            {'building_id': filter['building_id']}
+        ]})
+    if users:
+        return [UserOut(user_id=str(user['_id']), email=user['email'], role=user['role'],
+                date_registration=user['date_registration'], building_id=user['building_id']) for user in users]
+    else:
+        return []
+
+
+def get_employees(building_id: str = None) -> list:
     """Get users with the employee role
 
     :return: list employees (UserOut)
     """
-    employees = user_collection.find({'role': 'employee'}).sort('date_registration', pymongo.DESCENDING)
+    filter = {'role': 'employee'}
+    if building_id:
+        filter['building_id'] = building_id
+    employees = user_collection.find(filter).sort('date_registration', pymongo.DESCENDING)
     if employees:
         return [UserOut(user_id=str(employee['_id']), email=employee['email'], role=employee['role'],
-                        date_registration=employee['date_registration']) for employee in employees]
+                        date_registration=employee['date_registration'],
+                        building_id=employee['building_id']) for employee in employees]
     else:
         return []

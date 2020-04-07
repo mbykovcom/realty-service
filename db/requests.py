@@ -6,7 +6,7 @@ from starlette import status
 
 from models.requests import RequestIn, RequestOut, RequestOutEmployee, RequestOutAdmin
 from models.user import UserInDB
-from utils.db import user_collection, request_collection
+from utils.db import request_collection
 
 
 def create_request(request: RequestIn, user_id: ObjectId) -> RequestOut:
@@ -125,15 +125,12 @@ def edit_request(request_id: str, title: str = None, description: str = None) ->
     if not request:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='This user does not have request with id='
                                                                             f'{request_id}')
-    status_ = request['status']
-    title_ = request['title']
-    description_ = request['description']
-    if status_ == 'draft':
+    if request['status'] == 'draft':
         result = 0  # The modified flag
-        if title is not None and title != title_:
+        if title is not None and title != request['title']:
             result = request_collection.update_one({'_id': ObjectId(request_id)},
                                                    {'$set': {"title": title}}).modified_count
-        if description is not None and description != description_:
+        if description is not None and description != request['description']:
             result = request_collection.update_one({'_id': ObjectId(request_id)},
                                                    {'$set': {"description": description}}).modified_count
         if result:
@@ -146,11 +143,11 @@ def edit_request(request_id: str, title: str = None, description: str = None) ->
                               description=request['description'], status=request['status'],
                               date_receipt=request['date_receipt'])
     else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'The status of the request {status_}')
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='The status of the request '
+                                                                            f'{request["status"]}')
 
 
-def edit_status_request(request_id: str,
-                        user: UserInDB) -> RequestOut:  # TODO Добавить в тесты изменение статуса запроса сотрудником
+def edit_status_request(request_id: str, user: UserInDB) -> RequestOut:
     """Edit status request
 
     :param request_id: id request

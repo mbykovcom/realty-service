@@ -11,7 +11,7 @@ from db import requests
 from models.building import Coordinates, BuildingOut, BuildingIn, BuildingInDB
 from models.requests import RequestIn, RequestOut, RequestOutAdmin, RequestOutEmployee
 from models.user import UserIn, UserOut, UserInDB
-from db.user import get_user, registration, login, get_employees
+from db.user import get_user, registration, login, get_employees, get_users
 from db.building import create_building, get_buildings, get_building, edit_building
 from utils.auth import get_password_hash
 from utils.db import user_collection, request_collection, building_collection
@@ -35,9 +35,9 @@ class TestService:
                                    date_receipt=cls.request['date_receipt'])
 
         cls.administrator_in_db = UserInDB(_id=cls.administrator['_id'], email=cls.administrator['email'],
-                                          hash_password=cls.administrator['hash_password'],
-                                          role=cls.administrator['role'],
-                                          date_registration=cls.administrator['date_registration'], building_id=None)
+                                           hash_password=cls.administrator['hash_password'],
+                                           role=cls.administrator['role'],
+                                           date_registration=cls.administrator['date_registration'], building_id=None)
         cls.user_in_db = UserInDB(_id=cls.user['_id'], email=cls.user['email'],
                                   hash_password=cls.user['hash_password'], role=cls.user['role'],
                                   date_registration=cls.user['date_registration'], building_id=None)
@@ -139,7 +139,8 @@ class TestService:
                                      building_id=self.administrator['building_id']), role=role)
         TestService.administrator['_id'] = result.user_id
         TestService.administrator['hash_password'] = get_password_hash(self.administrator['password'])
-        TestService.administrator['date_registration'] = TestService.administrator_in_db.date_registration = result.date_registration
+        TestService.administrator[
+            'date_registration'] = TestService.administrator_in_db.date_registration = result.date_registration
         assert type(result) is UserOut
         assert result.role == role
 
@@ -154,7 +155,7 @@ class TestService:
 
     def test_login(self):
         result = login(UserIn(email=self.user['email'], password=self.user['password'],
-                                     building_id=self.user['building_id']))
+                              building_id=self.user['building_id']))
         assert result['access_token'] is not None
 
     def test_login_user_doesnt_exists(self):
@@ -254,12 +255,14 @@ class TestService:
 
     def test_assign_employee_to_request_not_active(self):
         with raises(HTTPException):
-            assert requests.assign_employee_to_request(self.employee['_id'], self.request['_id'], self.administrator_in_db)
+            assert requests.assign_employee_to_request(self.employee['_id'], self.request['_id'],
+                                                       self.administrator_in_db)
 
     def test_assign_employee_to_request(self):
         TestService.request['_id'] = requests.create_request(self.request_in, self.user_in_db._id).request_id
         requests.edit_status_request(self.request['_id'], self.user_in_db)
-        result = requests.assign_employee_to_request(self.employee['_id'], self.request['_id'], self.administrator_in_db)
+        result = requests.assign_employee_to_request(self.employee['_id'], self.request['_id'],
+                                                     self.administrator_in_db)
         assert result == RequestOutAdmin(request_id=self.request['_id'], user_id=result.user_id,
                                          employee_id=self.employee['_id'], title=self.request['title'],
                                          description=self.request['description'], status='active',
@@ -285,6 +288,30 @@ class TestService:
         assert result.status == 'finished'
         with raises(HTTPException):
             assert requests.edit_status_request(self.request['_id'], self.employee_in_db)
+
+    def test_get_users_without_filter(self):
+        result = get_users()
+        assert type(result) is list
+        assert len(result) == 6
+
+    def test_get_users_by_role(self):
+        role = 'user'
+        result = get_users(role=role)
+        assert type(result) is list
+        assert len(result) == 1
+
+    def test_get_users_by_building(self):
+        building_id = self.building['_id']
+        result = get_users(building_id=building_id)
+        assert type(result) is list
+        assert len(result) == 3
+
+    def test_get_users(self):
+        role = 'employee'
+        building_id = self.building['_id']
+        result = get_users(role, building_id)
+        assert type(result) is list
+        assert len(result) == 2
 
 
 if __name__ == '__main__':
