@@ -16,8 +16,7 @@ async def create_request(request: RequestIn = Body(
         "date_receipt": "2020-03-29 14:10:00"
     }), jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
-    response = requests.create_request(request, user._id)
-
+    response = requests.create_request(request, user)
     return response
 
 
@@ -37,9 +36,10 @@ async def get_request(request_id: str, jwt: str = Header(..., example='key')):
 @router.patch("/{request_id}", status_code=status.HTTP_200_OK, response_model=RequestOut)
 async def edit_request(request_id: str, title: str = None, description: str = None,
                        jwt: str = Header(..., example='key')) -> RequestOut:
-    if get_current_user(jwt):
+    user = get_current_user(jwt)
+    if user:
         if title or description:
-            return requests.edit_request(request_id, title, description)
+            return requests.edit_request(request_id, user, title, description)
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail='The Title and Description fields are empty')

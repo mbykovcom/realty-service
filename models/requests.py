@@ -25,12 +25,15 @@ class RequestOutEmployee(RequestOut):
 class RequestOutAdmin(RequestOut):
     user_id: str
     employee_id: str
+    building_id: str
+
 
 
 class RequestInDB:
     def __init__(self, **kwargs):
         self._id: ObjectId = kwargs['_id']
         self.user_id: str = kwargs['user_id']
+        self.building_id: str = kwargs['building_id']
         self.employee_id = kwargs['employee_id']
         self.title: str = kwargs['title']
         self.description: str = kwargs['description']

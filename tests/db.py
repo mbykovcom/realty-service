@@ -170,14 +170,14 @@ class TestService:
             assert login(user)
 
     def test_create_request(self):
-        result = requests.create_request(self.request_in, ObjectId(self.user['_id']))
+        TestService.user_in_db._id = ObjectId(self.user['_id'])
+        TestService.user_in_db.building_id = self.building['_id']
+        result = requests.create_request(self.request_in, self.user_in_db)
         TestService.request['_id'] = result.request_id
         TestService.request['status'] = result.status
         assert type(result) is RequestOut
 
     def test_get_requests(self):
-        TestService.user_in_db._id = ObjectId(self.user['_id'])
-        TestService.user_in_db.building_id = ObjectId(self.building['_id'])
         result = requests.get_requests(self.user_in_db)
         assert type(result) is list
 
@@ -197,11 +197,11 @@ class TestService:
             assert requests.get_requests(user)
 
     def test_edit_request(self):
-        result = requests.edit_request(self.request['_id'])
+        result = requests.edit_request(self.request['_id'], self.user_in_db)
         assert type(result) is RequestOut
-        result = requests.edit_request(self.request['_id'], title='Title')
+        result = requests.edit_request(self.request['_id'], self.user_in_db, title='Title')
         assert result.title == 'Title'
-        result = requests.edit_request(self.request['_id'], description='Description')
+        result = requests.edit_request(self.request['_id'], self.user_in_db, description='Description')
         assert result.description == 'Description'
 
     def test_edit_status_request_user(self):
@@ -214,10 +214,10 @@ class TestService:
 
     def test_edit_request_status_not_draft(self):
         with raises(HTTPException):
-            assert requests.edit_request(self.request['_id'], title='Title', description='Description')
+            assert requests.edit_request(self.request['_id'], self.user_in_db, title='Title', description='Description')
 
     def test_edit_status_request_administrator(self):
-        TestService.administrator_in_db.building_id = ObjectId(self.building['_id'])
+        TestService.administrator_in_db.building_id = self.building['_id']
         result = requests.edit_status_request(self.request['_id'], self.administrator_in_db)
         assert result.status == 'in_progress'
 
@@ -240,7 +240,7 @@ class TestService:
         employee_in.email = self.employee['email']
         result = registration(employee_in, self.employee['role'])
         TestService.employee['_id'] = result.user_id
-        TestService.employee_in_db.building_id = ObjectId(self.building['_id'])
+        TestService.employee_in_db.building_id = self.building['_id']
         TestService.employee_in_db._id = ObjectId(result.user_id)
         TestService.employee['hash_password'] = get_password_hash(self.user['password'])
         TestService.employee[
@@ -259,14 +259,14 @@ class TestService:
                                                        self.administrator_in_db)
 
     def test_assign_employee_to_request(self):
-        TestService.request['_id'] = requests.create_request(self.request_in, self.user_in_db._id).request_id
+        TestService.request['_id'] = requests.create_request(self.request_in, self.user_in_db).request_id
         requests.edit_status_request(self.request['_id'], self.user_in_db)
         result = requests.assign_employee_to_request(self.employee['_id'], self.request['_id'],
                                                      self.administrator_in_db)
         assert result == RequestOutAdmin(request_id=self.request['_id'], user_id=result.user_id,
-                                         employee_id=self.employee['_id'], title=self.request['title'],
-                                         description=self.request['description'], status='active',
-                                         date_receipt=self.request['date_receipt'])
+                                         building_id=self.building['_id'], employee_id=self.employee['_id'],
+                                         title=self.request['title'], description=self.request['description'],
+                                         status='active', date_receipt=self.request['date_receipt'])
 
     def test_employee_get_requests(self):
         result = requests.get_requests(self.employee_in_db)

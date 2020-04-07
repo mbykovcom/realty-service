@@ -474,6 +474,7 @@ class TestRoutes:
             [
                 {"request_id": response['requests'][0]['request_id'],
                  "user_id": response['requests'][0]['user_id'],
+                 "building_id": self.building['_id'],
                  "title": self.request['title'],
                  "description": self.request['description'],
                  "employee_id": "",
@@ -504,6 +505,7 @@ class TestRoutes:
             datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
         assert response == {"request_id": self.request_id,
                             "user_id": response['user_id'],
+                            "building_id": self.building['_id'],
                             "title": self.request['title'],
                             "description": self.request['description'],
                             "employee_id": "",
@@ -610,6 +612,7 @@ class TestRoutes:
             datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
         assert response == {"request_id": self.request_id,
                             'user_id': response['user_id'],
+                            "building_id": self.building['_id'],
                             "employee_id": "",
                             "title": self.request['title'],
                             "description": self.request['description'],
@@ -625,6 +628,7 @@ class TestRoutes:
             datetime.strptime(response['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
         assert response == {"request_id": self.request_id,
                             'user_id': response['user_id'],
+                            "building_id": self.building['_id'],
                             "employee_id": "",
                             "title": self.request['title'],
                             "description": self.request['description'],
@@ -699,6 +703,7 @@ class TestRoutes:
         response = response.json()
         assert response == {"request_id": response['request_id'],
                             'user_id': response['user_id'],
+                            "building_id": self.building['_id'],
                             "employee_id": str(self.employee_id),
                             "title": self.request['title'],
                             "description": self.request['description'],

@@ -16,34 +16,36 @@ from utils.db import user_collection, request_collection
 class TestCelery:
 
     def setup_class(cls):
-        cls.admin = {'_id': ObjectId("5e81d28fe21b6af5982f93fa"), 'email': 'admin@example.com', 'password': 'admin',
-                     'role': 'admin', 'date_registration': None}
-        cls.admin_in_db = UserInDB(_id=cls.admin['_id'], email=cls.admin['email'],
-                                   hash_password=get_password_hash(cls.admin['password']), role=cls.admin['role'],
-                                   date_registration=cls.admin['date_registration'], building_id=None)
+        cls.administrator = {'_id': ObjectId("5e81d28fe21b6af5982f93fa"), 'email': 'admin@example.com',
+                             'password': 'admin', 'role': 'administrator',
+                             'building_id': 'id', 'date_registration': None}
+        cls.administrator_in_db = UserInDB(_id=cls.administrator['_id'], email=cls.administrator['email'],
+                                           hash_password=get_password_hash(cls.administrator['password']),
+                                           role=cls.administrator['role'], building_id=cls.administrator['building_id'],
+                                           date_registration=cls.administrator['date_registration'])
 
-        cls.employee = {'_id': None, 'email': 'employee@celery.ru', 'password': 'employee'}
-        cls.employee_in = UserIn(email=cls.employee['email'], password=cls.employee['password'])
+        cls.employee = {'_id': None, 'email': 'employee@celery.ru', 'password': 'employee', 'building_id': 'id'}
+        cls.employee_in = UserIn(email=cls.employee['email'], password=cls.employee['password'],
+                                 building_id=cls.employee['building_id'])
         cls.employee['_id'] = registration(cls.employee_in, role='employee').user_id
 
         cls.user = {'_id': None, 'email': 'user@celery.ru', 'password': 'user', 'role': 'user',
-                    'date_registration': None}
-        cls.user_in = UserIn(email=cls.user['email'], password=cls.user['password'])
+                    'date_registration': None, 'building_id': 'id'}
+        cls.user_in = UserIn(email=cls.user['email'], password=cls.user['password'], building_id=cls.user['building_id'])
         data_user = registration(cls.user_in)
         cls.user['_id'] = data_user.user_id
         cls.user['date_registration'] = data_user.date_registration
         cls.user_in_db = UserInDB(_id=ObjectId(cls.user['_id']), email=cls.user['email'],
                                   hash_password=get_password_hash(cls.user['password']), role=cls.user['role'],
-                                  date_registration=cls.user['date_registration'], building_id=None)
+                                  date_registration=cls.user['date_registration'], building_id=cls.user['building_id'])
 
         cls.request = {'_id': None, 'title': 'Test Title', 'description': 'Test Description',
                        'date_receipt': datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'status': None}
         cls.request_in = RequestIn(title=cls.request['title'], description=cls.request['description'],
                                    date_receipt=cls.request['date_receipt'])
-        cls.request['_id'] = requests.create_request(cls.request_in, ObjectId(cls.user['_id'])).request_id
+        cls.request['_id'] = requests.create_request(cls.request_in, cls.user_in_db).request_id
         requests.edit_status_request(cls.request['_id'], cls.user_in_db)
-        registration(UserIn(email='admin@example.com', password='admin'), 'admin')
-
+        registration(UserIn(email='admin@example.com', password='admin', building_id='id'), 'administrator')
 
     def teardown_class(cls):
         user_collection.delete_many({})
@@ -72,7 +74,7 @@ class TestCelery:
 
     @mock.patch("celery_app.warning_employee_long_time_complete_request", mock.MagicMock(return_value=True))
     def test_overdue_requests_execution(self):
-        requests.assign_employee_to_request(self.employee['_id'], self.request['_id'], self.admin_in_db)
+        requests.assign_employee_to_request(self.employee['_id'], self.request['_id'], self.administrator_in_db)
         new_date = datetime.now() - timedelta(hours=72)
         request = request_collection.update_one({'_id': ObjectId(self.request['_id'])},
                                                 {'$set': {"date_receipt": new_date}}).modified_count
