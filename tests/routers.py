@@ -85,16 +85,13 @@ class TestRoutes:
         response = client.get("/admin/building", headers=headers)
         assert response.status_code == 200
         response = response.json()
-        assert type(response['buildings']) is list
-        assert response == {'buildings':
-            [
-                {"building_id": self.building['_id'],
-                 "name": self.building['name'],
-                 "description": self.building['description'],
-                 "location": [self.building['location'].lat, self.building['location'].lon],
-                 "square": self.building['square']}
-            ]
-        }
+        assert type(response) is list
+        assert response == [
+            {"building_id": self.building['_id'],
+             "name": self.building['name'],
+             "description": self.building['description'],
+             "location": [self.building['location'].lat, self.building['location'].lon],
+             "square": self.building['square']}]
 
     def test_get_building(self):
         headers = {'jwt': self.jwt['admin']}
@@ -431,18 +428,15 @@ class TestRoutes:
         response = client.get(f"/requests", headers=headers)
         assert response.status_code == 200
         response = response.json()
-        response['requests'][0]['date_receipt'] = str(
-            datetime.strptime(response['requests'][0]['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
-        assert type(response['requests']) is list
-        assert response == {'requests':
-            [
-                {"request_id": response['requests'][0]['request_id'],
+        response[0]['date_receipt'] = str(
+            datetime.strptime(response[0]['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
+        assert type(response) is list
+        assert response == [
+                {"request_id": response[0]['request_id'],
                  "title": self.request['title'],
                  "description": self.request['description'],
                  "status": "draft",
-                 "date_receipt": self.request['date_receipt']}
-            ]
-        }
+                 "date_receipt": self.request['date_receipt']}]
 
     def test_get_requests_user_empty(self):
         headers = {'jwt': self.jwt['user']}
@@ -467,21 +461,18 @@ class TestRoutes:
         headers['jwt'] = self.jwt['administrator']
         response = client.get(f"/requests", headers=headers)
         response = response.json()
-        assert type(response['requests']) is list
-        response['requests'][0]['date_receipt'] = str(
-            datetime.strptime(response['requests'][0]['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
-        assert response == {'requests':
-            [
-                {"request_id": response['requests'][0]['request_id'],
-                 "user_id": response['requests'][0]['user_id'],
+        assert type(response) is list
+        response[0]['date_receipt'] = str(
+            datetime.strptime(response[0]['date_receipt'], '%Y-%m-%dT%H:%M:%S'))
+        assert response == [
+                {"request_id": response[0]['request_id'],
+                 "user_id": response[0]['user_id'],
                  "building_id": self.building['_id'],
                  "title": self.request['title'],
                  "description": self.request['description'],
                  "employee_id": "",
                  "status": "active",
-                 "date_receipt": self.request['date_receipt']}
-            ]
-        }
+                 "date_receipt": self.request['date_receipt']}]
 
     def test_get_request_user(self):
         headers = {'jwt': self.jwt['user']}
@@ -661,12 +652,12 @@ class TestRoutes:
         response = client.get('/employee', headers=headers)
         assert response.status_code == 200
         response = response.json()
-        assert len(response['employees']) == 2
-        assert response['employees'][0] == {'date_registration': response['employees'][0]['date_registration'],
-                                            'email': employee_admin['email'],
-                                            'role': 'employee',
-                                            'user_id': response['employees'][0]['user_id'],
-                                            "building_id": None}
+        assert len(response) == 2
+        assert response[0] == {'date_registration': response[0]['date_registration'],
+                               'email': employee_admin['email'],
+                               'role': 'employee',
+                               'user_id': response[0]['user_id'],
+                               "building_id": None}
 
     def test_get_employees_administrator(self):
         headers = {'jwt': self.jwt['administrator']}
@@ -677,12 +668,12 @@ class TestRoutes:
         response = client.get('/employee', headers=headers)
         assert response.status_code == 200
         response = response.json()
-        assert len(response['employees']) == 2
-        assert response['employees'][0] == {'date_registration': response['employees'][0]['date_registration'],
-                                            'email': new_employee['email'],
-                                            'role': 'employee',
-                                            'user_id': response['employees'][0]['user_id'],
-                                            "building_id": self.building['_id']}
+        assert len(response) == 2
+        assert response[0] == {'date_registration': response[0]['date_registration'],
+                               'email': new_employee['email'],
+                               'role': 'employee',
+                               'user_id': response[0]['user_id'],
+                               "building_id": self.building['_id']}
 
     def test_employee_get_requests_empty(self):
         response = client.post('/login', json=self.employee)
@@ -715,14 +706,14 @@ class TestRoutes:
         response = client.get('/requests', headers=headers)
         assert response.status_code == 200
         response = response.json()
-        TestRoutes.request_id = response['requests'][0]['request_id']
-        assert response == {'requests': [{
-            'date_receipt': response['requests'][0]['date_receipt'],
+        TestRoutes.request_id = response[0]['request_id']
+        assert response == [{
+            'date_receipt': response[0]['date_receipt'],
             'description': self.request['description'],
-            'request_id': response['requests'][0]['request_id'],
-            'status': response['requests'][0]['status'],
+            'request_id': response[0]['request_id'],
+            'status': response[0]['status'],
             'title': self.request['title'],
-            'user_id': response['requests'][0]['user_id']}]}
+            'user_id': response[0]['user_id']}]
 
     def test_employee_get_request(self):
         headers = {'jwt': self.jwt['employee']}
@@ -742,21 +733,21 @@ class TestRoutes:
         response = client.get(f'/admin/users', headers=headers)
         assert response.status_code == 200
         response = response.json()
-        assert len(response['users']) == 6
+        assert len(response) == 6
 
     def test_get_users_by_role(self):
         headers = {'jwt': self.jwt['admin']}
         response = client.get(f'/admin/users?role=employee', headers=headers)
         assert response.status_code == 200
         response = response.json()
-        assert len(response['users']) == 3
+        assert len(response) == 3
 
     def test_get_users_by_building(self):
         headers = {'jwt': self.jwt['admin']}
         response = client.get(f'/admin/users?building_id={self.building["_id"]}', headers=headers)
         assert response.status_code == 200
         response = response.json()
-        assert len(response['users']) == 4
+        assert len(response) == 4
 
     def test_get_users(self):
         headers = {'jwt': self.jwt['admin']}
@@ -764,7 +755,7 @@ class TestRoutes:
                               headers=headers)
         assert response.status_code == 200
         response = response.json()
-        assert len(response['users']) == 1
+        assert len(response) == 1
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ from routers import requests, auth, employee, admin
 
 app = FastAPI(title="Realty-Service",
               description="This is a training project, with auto docs for the API",
-              version="0.1", )
+              version="0.3", )
 
 app.include_router(requests.router, prefix='/requests')
 app.include_router(auth.router)

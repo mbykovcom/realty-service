@@ -1,13 +1,15 @@
+
 from fastapi import status, Body, HTTPException, APIRouter, Header
 
 from db import requests
+from models.http_exception import Error
 from utils.auth import get_current_user
 from models.requests import RequestIn, RequestOut
 
 router = APIRouter()
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=RequestOut)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=RequestOut, responses={401: {'model': Error}})
 async def create_request(request: RequestIn = Body(
     ...,
     example={
@@ -20,20 +22,21 @@ async def create_request(request: RequestIn = Body(
     return response
 
 
-@router.get("", status_code=status.HTTP_200_OK)
+@router.get("", status_code=status.HTTP_200_OK, responses={401: {'model': Error}})
 async def get_requests(jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
-    requests_ = requests.get_requests(user)
-    return {'requests': [request for request in requests_]}
+    requests_list = requests.get_requests(user)
+    return requests_list
 
 
-@router.get("/{request_id}", status_code=status.HTTP_200_OK)
+@router.get("/{request_id}", status_code=status.HTTP_200_OK, responses={400: {'model': Error}, 401: {'model': Error}})
 async def get_request(request_id: str, jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
     return requests.get_request(request_id, user)
 
 
-@router.patch("/{request_id}", status_code=status.HTTP_200_OK, response_model=RequestOut)
+@router.patch("/{request_id}", status_code=status.HTTP_200_OK, response_model=RequestOut,
+              responses={400: {'model': Error}, 401: {'model': Error}})
 async def edit_request(request_id: str, title: str = None, description: str = None,
                        jwt: str = Header(..., example='key')) -> RequestOut:
     user = get_current_user(jwt)
@@ -45,7 +48,8 @@ async def edit_request(request_id: str, title: str = None, description: str = No
                                 detail='The Title and Description fields are empty')
 
 
-@router.patch("/status/{request_id}", status_code=status.HTTP_200_OK)
+@router.patch("/status/{request_id}", status_code=status.HTTP_200_OK, responses={400: {'model': Error},
+                                                                                 401: {'model': Error}})
 async def edit_status_request(request_id: str, jwt: str = Header(..., example='key')):
     user = get_current_user(jwt)
     return requests.edit_status_request(request_id, user)

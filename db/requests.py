@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List
 
 from bson.objectid import ObjectId
 from fastapi import HTTPException
@@ -13,28 +13,27 @@ def create_request(request: RequestIn, user_data: UserInDB) -> RequestOut:
     """Create a request
 
     :param request: object RequestIn with data a user for create a request
-    :param user_id: id of the user creating the request
+    :param user_data: user's data
     :return: data the request
     """
     request_db = {}
-    request_id = None
     try:
         request_db = {'user_id': user_data._id, 'building_id': user_data.building_id, 'employee_id': '',
                       'title': request.title, 'description': request.description,
                       'date_receipt': request.date_receipt, 'status': 'draft'}
-        request_id = str(request_collection.insert_one(request_db).inserted_id)
+        request_db['id'] = str(request_collection.insert_one(request_db).inserted_id)
     except BaseException as e:  # If an exception is raised when adding to the database
         print(f'Error: {e}')
         if request_collection:
             request_collection.remove({'_id': user_data._id})
-    if request_id:
-        return RequestOut(request_id=request_id, title=request_db['title'], description=request_db['description'],
+    if request_db['id']:
+        return RequestOut(request_id=request_db['id'], title=request_db['title'], description=request_db['description'],
                           status=request_db['status'], date_receipt=request_db['date_receipt'])
     else:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to add a request')
 
 
-def get_requests(user_data: UserInDB) -> list:
+def get_requests(user_data: UserInDB) -> List[Union[RequestOut, RequestOutEmployee, RequestOutAdmin]]:
     """Get requests the user
 
     :param user_data: object UserInDB

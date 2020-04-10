@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+from typing import List
 
 import pymongo
 from fastapi import HTTPException
@@ -31,18 +32,17 @@ def registration(user_data: UserIn, role: str = 'user') -> HTTPException or User
     if get_user(user_data.email):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='A user with this email already exists')
     user_db = {}
-    user_id = None
     try:
         user_db = {'email': user_data.email, 'hash_password': get_password_hash(user_data.password), 'role': role,
                    'date_registration': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                    'building_id': user_data.building_id}
-        user_id = str(user_collection.insert_one(user_db).inserted_id)
+        user_db['id'] = str(user_collection.insert_one(user_db).inserted_id)
     except BaseException as e:  # If an exception is raised when adding to the database
         print(f'Error: {e}')
         if user_collection:
-            user_collection.remove({'_id': user_id})
-    if user_id:
-        return UserOut(user_id=user_id, email=user_db['email'], role=role,
+            user_collection.remove({'_id': user_db['id']})
+    if user_db['id']:
+        return UserOut(user_id=user_db['id'], email=user_db['email'], role=role,
                        date_registration=user_db['date_registration'], building_id=user_db['building_id'])
     else:
         return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to add a user')
@@ -71,7 +71,7 @@ def login(user_data: UserIn) -> dict:
                             headers={"WWW-Authenticate": "Bearer"}, )
 
 
-def get_users(role: str = None, building_id: str = None) -> list:
+def get_users(role: str = None, building_id: str = None) -> List[UserOut]:
     """"Get all users filtered by roles or building
 
     :param role: role filter
@@ -99,7 +99,7 @@ def get_users(role: str = None, building_id: str = None) -> list:
         return []
 
 
-def get_employees(building_id: str = None) -> list:
+def get_employees(building_id: str = None) -> List[UserOut]:
     """Get users with the employee role
 
     :return: list employees (UserOut)

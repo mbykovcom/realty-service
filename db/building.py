@@ -1,3 +1,5 @@
+from typing import List
+
 from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
@@ -29,7 +31,7 @@ def create_building(building: BuildingIn) -> BuildingOut:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to add a building')
 
 
-def get_buildings() -> list:
+def get_buildings() -> List[BuildingOut]:
     """Get buildings
 
     :return: building list (BuildingOut)

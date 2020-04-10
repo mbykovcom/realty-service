@@ -53,7 +53,7 @@ def send_email(email, title, description) -> bool:
 
 
 @celery.task
-def warning_admin_long_time_consider_request():
+def warning_admin_long_time_consider_request() -> bool:
     admin = user_collection.find_one({'role': 'admin'})
     try:
         requests = request_collection.find({'employee_id': ''})
@@ -74,7 +74,7 @@ def warning_admin_long_time_consider_request():
 
 
 @celery.task
-def warning_employee_long_time_complete_request():
+def warning_employee_long_time_complete_request() -> bool:
     try:
         requests = request_collection.find({'$and': [
             {'employee_id': {'$not': {'$eq': ''}}},
